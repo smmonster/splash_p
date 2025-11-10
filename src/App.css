@@ -424,3 +424,175 @@ body {
 .guide-text {
   color: #999;   /* 밝은 회색 */
 }
+
+/* 브랜드 선택 탭 (지도 / 네플스) */
+.brand-type-tab-row {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 0px;
+  margin-bottom: 10px;
+  padding: 6px;
+  background: #f6f6f6;
+  border-radius: 5px;
+  border: 1px solid #dde2f0;
+}
+
+/* pill 버튼 스타일 */
+.brand-type-tab-btn {
+  position: relative;
+  border: none;
+  outline: none;
+  padding: 6px 18px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 5px;
+  background: transparent;
+  color: #878787;
+  cursor: pointer;
+  background: rgba(255, 255, 255);
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
+}
+
+.brand-type-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(96, 96, 96, 0.12);
+}
+
+.brand-type-tab-btn.active {
+  background: #383838;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(80, 80, 80, 0.35);
+  transform: translateY(-0.5px);
+}
+
+
+
+/* 수동 체크리스트 */
+.manual-checklist {
+  list-style: none;
+  margin: 4px 0 6px 0;
+  padding: 0;
+  width: 100%;
+}
+
+.manual-check-item {
+  background: #fff;
+  border: 1px solid #e8e8ee;
+  border-radius: 6px;
+  padding: 12px 12px 10px 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(40,40,60,0.04);
+}
+
+.manual-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.manual-check-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #232323;
+  cursor: pointer;
+}
+
+.manual-check-label {
+  font-size: 0.99rem;
+  color: #222;
+  font-weight: 600;
+}
+
+.manual-check-guide {
+  margin-top: 6px;
+  font-size: 0.94rem;
+  color: #566687;
+  line-height: 1.5;
+  border-left: 1px solid #e1e6f6;
+  padding-left: 10px;
+}
+
+.manual-check-guide-text {
+  color: #354564;
+}
+
+/* 수동 체크리스트 (기본가이드 스타일 통일 + 체크박스형) */
+.ad-info-box-check--manual {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #373737;
+}
+
+.manual-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  color: #222;
+  font-size: 0.95rem;
+}
+
+.manual-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.manual-check-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #232323;
+  cursor: pointer;
+}
+
+.manual-check-text {
+  font-weight: 600;
+  color: #232323;
+}
+
+.manual-check-guide {
+  color: #888;
+  font-size: 0.93rem;
+  line-height: 1.45;
+  flex: 1;
+  margin-left: 6px;
+}
+
+/* 수동 체크리스트 제목 */
+.manual-checklist-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #000000;
+  margin-top: 30px;
+  margin-left: 0px;
+  margin-bottom: -8px;
+  letter-spacing: -0.03em;
+  text-align: left;
+}
+
+.preview-guide-box {
+  border: 1px solid #e1e5f0;
+  background: #f8faff;
+  border-radius: 2px;
+  padding: 1px 20px;
+  margin-top: -50px;
+  margin-bottom: 20px;
+  color: #334155;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.preview-guide-box b {
+  display: block;
+  color: #1e293b;
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
