@@ -1099,7 +1099,9 @@ setBottomMainColor(hex);
         position: "relative",
         borderRadius: 28,
         overflow: "hidden",
-        background: bgColor
+        background: bgColor,
+        border: "8px solid #e5e7eb",   
+       boxShadow: "0 6px 24px rgba(0,0,0,0.15)" 
       }}
     >
       {/* 상단 55%: 로고 영역 */}
