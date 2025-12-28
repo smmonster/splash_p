@@ -4,19 +4,27 @@ import "./App.css";
 // --- 로고 가이드 파일 세트 ---
 // 지도
 const MAP_LOGO_GUIDE_LIST = [
-  { name: "가로형", file: process.env.PUBLIC_URL + "/map_splash_logo_W.png" },
-  { name: "세로형", file: process.env.PUBLIC_URL + "/map_splash_logo_H.png" },
+  { name: "가로형", orientation: "W", file: process.env.PUBLIC_URL + "/map_splash_logo_W.png" },
+  { name: "세로형", orientation: "H", file: process.env.PUBLIC_URL + "/map_splash_logo_H.png" },
 ];
 
-// 네플스 (파일명은 예시. 실제와 다르면 여기만 수정하면 됨)
+// 네플스
 const NPS_LOGO_GUIDE_LIST = [
-  { name: "가로형", file: process.env.PUBLIC_URL + "/nps_splash_logo_W_1.png" },
-  { name: "세로형", file: process.env.PUBLIC_URL + "/nps_splash_logo_H_1.png" },
+  { name: "가로형", orientation: "W", file: process.env.PUBLIC_URL + "/nps_splash_logo_W_1.png" },
+  { name: "세로형", orientation: "H", file: process.env.PUBLIC_URL + "/nps_splash_logo_H_1.png" },
 ];
 
+// 웹툰
+const WEBTOON_LOGO_GUIDE_LIST = [
+  { name: "가로형-기본", orientation: "W", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_W_1.png" },
+  { name: "가로형-정방형", orientation: "W", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_W_2.png" },
+  { name: "세로형-기본", orientation: "H", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_H_1.png" },
+  { name: "세로형-정방형", orientation: "H", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_H_2.png" },
+  { name: "단독형", orientation: "ONLY", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_only.png" },
+];
 
 // 수동 체크리스트 항목 (기준 문구 포함)
-const MANUAL_CHECK_ITEMS = [
+const MANUAL_CHECK_COMMON = [
   {
     id: "check_size",
     label: "최소/최대 사이즈 확인",
@@ -28,6 +36,74 @@ const MANUAL_CHECK_ITEMS = [
     guide: "로고 영역에는 이벤트/캠페인 명이 아닌 브랜드로고만 적용 가능 (e.g. 네이버예약 O / 10주년 예약위크 X)"
   }
 ];
+
+const MANUAL_CHECK_MAP = [
+  {
+    id: "map_logo_contrast_choice",
+    label: "지도 로고 컬러 (White/Black)",
+    guide: "등록한 배경색과의 대비율이 더 큰 색(White/Black)으로 로고 제작 필요"
+  }
+];
+
+const MANUAL_CHECK_WEBTOON = [
+  {
+    id: "webtoon_green_logo",
+    label: "로고 색상",
+    guide: "광고주 로고 색상이 흰색/검은색 이라면, 웹툰 로고도 동일하게 흰색/검은색 사용 가능 (유색인 경우, 웹툰 로고는 녹색 유지)"
+  },
+  {
+    id: "webtoon_logo_type",
+    label: "로고 유형",
+    guide: "광고주 로고의 유형에 따라 가로형/세로형/정방형 가이드에 맞게 적용 (정렬 및 간격 유지 필수)"
+  },
+  {
+    id: "webtoon_logo_type2",
+    label: "로고 단독형 사용",
+    guide: "웹툰 로고 단독형 사용 시 녹색 사용을 원칙으로 하며, 배경 색상에 따라 흰색 사용 가능 (검은색 사용 지양. 별도 협의)"
+  },
+  {
+    id: "webtoon_divider",
+    label: "로고 구분선 (디바이더)",
+    guide: "로고 간 디바이더는 투명도 없이 100%로 적용하며 배경 컬러에 따라 Black 또는 White 타입 사용"
+  } 
+];
+
+const MANUAL_CHECK_BOTTOM_COMMON = [
+  {
+    id: "bottom_main_area_safe",
+    label: "주요 크리에이티브 영역 준수",
+    guide: "중앙 주요 Creative 영역(점선 영역)에 핵심 비주얼이 배치되었는지 확인"
+  },
+  {
+    id: "bottom_text_avoid",
+    label: "텍스트 배치 지양 영역 회피",
+    guide: "하단 텍스트 배치 지양 영역에 주요 정보가 포함되지 않았는지 확인"
+  },
+  {
+    id: "bottom_map_font",
+    label: "사용 폰트 가이드 준수",
+    guide: "최대 2가지 폰트만 사용 가능, 브랜드 고유 폰트는 고딕형 사용 권장, 폰트 컬러는 최대 2가지만 사용 가능"
+  },
+  {
+    id: "bottom_map_bg",
+    label: "이미지 배경 처리 방식",
+    guide: "배경이 있는 이미지는 영역을 모두 채우거나 자연스럽게 그라데이션 되도록 처리 권장"
+  },
+    {
+    id: "bottom_image_avoid",
+    label: "사용불가 및 제한되는 이미지 확인",
+    guide: "제품의 용도나 사용 모습 등이 혐오감을 주거나 신체 일부를 확대하여 혐오감을 주는 경우 노출 불가"
+  }
+];
+
+const MANUAL_CHECK_BOTTOM_MAP = [
+
+];
+
+const MANUAL_CHECK_BOTTOM_WEBTOON = [
+
+];
+
 
 const LOGO_WIDTH = 945, LOGO_HEIGHT = 720;
 const BOTTOM_WIDTH = 1400, BOTTOM_HEIGHT = 614;
@@ -42,6 +118,57 @@ function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+// ===== guide recolor (alpha 유지) =====
+const recolorGuideCache = new Map();
+
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return { r: 255, g: 255, b: 255 };
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+}
+
+function loadImg(src) {
+  return new Promise((res, rej) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = src;
+  });
+}
+
+// src PNG를 targetHex 단색(알파 유지)으로 변환한 dataURL 반환
+async function getRecoloredGuideDataUrl(src, targetHex) {
+  const key = `${src}__${targetHex}`;
+  if (recolorGuideCache.has(key)) return recolorGuideCache.get(key);
+
+  const img = await loadImg(src);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imageData.data;
+  const { r, g, b } = hexToRgb(targetHex);
+
+  for (let i = 0; i < d.length; i += 4) {
+    const a = d[i + 3];
+    if (a > 0) {
+      d[i] = r;
+      d[i + 1] = g;
+      d[i + 2] = b;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  const url = canvas.toDataURL("image/png");
+  recolorGuideCache.set(key, url);
+  return url;
 }
 
 async function getOverlapErrorPercent(src1, src2, width, height) {
@@ -88,6 +215,38 @@ function getContrastColor(hex) {
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   return brightness > 128 ? "#222" : "#fff";
 }
+
+// WCAG 대비율 계산 (hex vs hex)
+function hexToRgb01(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
+  if (!m) return { r: 0, g: 0, b: 0 };
+  return {
+    r: parseInt(m[1], 16) / 255,
+    g: parseInt(m[2], 16) / 255,
+    b: parseInt(m[3], 16) / 255
+  };
+}
+
+function srgbToLinear(v) {
+  return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+
+function relativeLuminance(hex) {
+  const { r, g, b } = hexToRgb01(hex);
+  const R = srgbToLinear(r);
+  const G = srgbToLinear(g);
+  const B = srgbToLinear(b);
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+}
+
+function contrastRatio(hex1, hex2) {
+  const L1 = relativeLuminance(hex1);
+  const L2 = relativeLuminance(hex2);
+  const lighter = Math.max(L1, L2);
+  const darker = Math.min(L1, L2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 
 // --- 중앙정렬 검사 ---
 function analyzePaddingAlignment(img, { alphaThresh = 40, tolerance = 10 } = {}) {
@@ -142,6 +301,7 @@ const FULL_TAB_LIST = [
 
 export default function FullSplashMaterialCheck() {
   const [fullTab, setFullTab] = useState("logo");
+  const [logoBrand, setLogoBrand] = useState("map"); // 기본: 지도
 
   // 로고
   const [logoImg, setLogoImg] = useState(null);
@@ -150,15 +310,94 @@ export default function FullSplashMaterialCheck() {
   const [logoGuideOpacity, setLogoGuideOpacity] = useState(0.3);
   const [logoErrorPercents, setLogoErrorPercents] = useState([]);
   const [logoPaddingCheck, setLogoPaddingCheck] = useState(null);
-  const [invertGuide, setInvertGuide] = useState(false);
+  const [manualChecks, setManualChecks] = useState({});
+  const [manualBottomChecks, setManualBottomChecks] = useState({});
+
+  // 기존 invertGuide 제거
+// const [invertGuide, setInvertGuide] = useState(false);
+
+// ✅ 가이드 컬러 모드
+const [guideColorMode, setGuideColorMode] = useState("white"); // map/nps 기본 white
+const [guideOverlaySrc, setGuideOverlaySrc] = useState(null);  // 재색상된 가이드 src
+
+const manualCheckItems = [
+    ...(logoBrand === "map" ? MANUAL_CHECK_MAP : []),
+    ...(logoBrand === "webtoon" ? MANUAL_CHECK_WEBTOON : []),
+    ...MANUAL_CHECK_COMMON
+  ];
+
+const manualBottomCheckItems = [
+  ...(logoBrand === "map" ? MANUAL_CHECK_BOTTOM_MAP : []),
+  ...(logoBrand === "webtoon" ? MANUAL_CHECK_BOTTOM_WEBTOON : []),
+  ...MANUAL_CHECK_BOTTOM_COMMON
+];
+
+useEffect(() => {
+  const initialState = {};
+  manualBottomCheckItems.forEach(item => {
+    initialState[item.id] = false;
+  });
+  setManualBottomChecks(initialState);
+}, [logoBrand]);
+
+  
+ useEffect(() => {
+    const initialState = {};
+    manualCheckItems.forEach(item => {
+      initialState[item.id] = false;
+    });
+    setManualChecks(initialState);
+  }, [logoBrand]); // 의존성은 logoBrand 하나면 충분
+
+useEffect(() => {
+  // 지도/네플스: white 디폴트
+  // 웹툰: green 디폴트
+  if (logoBrand === "webtoon") setGuideColorMode("green");
+  else setGuideColorMode("white");
+}, [logoBrand]);
+
+useEffect(() => {
+  let cancelled = false;
+
+  (async () => {
+    const g = currentGuideList[logoGuideIdx];
+    if (!g) {
+      setGuideOverlaySrc(null);
+      return;
+    }
+
+    // 원본 그대로 쓰는 모드
+    const useOriginal =
+      (logoBrand !== "webtoon" && guideColorMode === "white") || // map/nps: white=원본
+      (logoBrand === "webtoon" && guideColorMode === "green");   // webtoon: green=원본
+
+    if (useOriginal) {
+      setGuideOverlaySrc(null);
+      return;
+    }
+
+    // 재색상
+    const targetHex =
+      guideColorMode === "white" ? "#ffffff" :
+      guideColorMode === "black" ? "#000000" :
+      "#ffffff";
+
+    const recolored = await getRecoloredGuideDataUrl(g.file, targetHex);
+    if (!cancelled) setGuideOverlaySrc(recolored);
+  })();
+
+  return () => { cancelled = true; };
+}, [guideColorMode, logoGuideIdx, logoBrand]);
 
   
 const [bottomMainColor, setBottomMainColor] = useState(null);
 
   // 로고 가이드 브랜드 (지도 / 네플스)
-  const [logoBrand, setLogoBrand] = useState("map"); // 기본: 지도
+
   const currentGuideList =
-    logoBrand === "map" ? MAP_LOGO_GUIDE_LIST : NPS_LOGO_GUIDE_LIST;
+  logoBrand === "map" ? MAP_LOGO_GUIDE_LIST :
+  logoBrand === "webtoon" ? WEBTOON_LOGO_GUIDE_LIST :
+  NPS_LOGO_GUIDE_LIST;
 
   // 하단
   const [bottomImg, setBottomImg] = useState(null);
@@ -170,11 +409,6 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   const [bgHexInput, setBgHexInput] = useState("#000000");
   const [bgCheck, setBgCheck] = useState({ s: 0, b: 0, pass: true });
   const [bgWasChosen, setBgWasChosen] = useState(false);
-
-    // 수동 체크리스트 상태
-const [manualChecks, setManualChecks] = useState(
-  Object.fromEntries(MANUAL_CHECK_ITEMS.map(i => [i.id, false]))
-);
 
 const toggleManualCheck = (id) => {
   setManualChecks(prev => ({ ...prev, [id]: !prev[id] }));
@@ -254,7 +488,10 @@ const toggleManualCheck = (id) => {
       setLogoGuideIdx(0);
       return;
     }
-    const guideList = logoBrand === "map" ? MAP_LOGO_GUIDE_LIST : NPS_LOGO_GUIDE_LIST;
+    const guideList =
+      logoBrand === "map" ? MAP_LOGO_GUIDE_LIST :
+      logoBrand === "webtoon" ? WEBTOON_LOGO_GUIDE_LIST :
+      NPS_LOGO_GUIDE_LIST;
 
     (async () => {
       const errorArr = [];
@@ -319,6 +556,10 @@ setBottomMainColor(hex);
   };
 
   const contrastColor = getContrastColor(bgColor);
+  const mapWhiteCR = contrastRatio(bgColor, "#ffffff");
+  const mapBlackCR = contrastRatio(bgColor, "#000000");
+  const mapRecommendedLogo = mapWhiteCR >= mapBlackCR ? "white" : "black";
+
 
   return (
     <div>
@@ -345,6 +586,7 @@ setBottomMainColor(hex);
 <div className="brand-type-tab-row">
   {[
     { key: "map", label: "지도앱" },
+    { key: "webtoon", label: "웹툰앱" },
     { key: "nps", label: "네이버플러스스토어" },
   ].map(brand => (
     <button
@@ -418,23 +660,66 @@ setBottomMainColor(hex);
                       }}
                     >
                       {/* 좌상단 체크박스 */}
-                      <div style={{
-                        position: "absolute",
-                        top: 6,
-                        left: 6,
-                        background: "rgba(255,255,255,0.8)",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        fontSize: "0.8em",
-                        zIndex: 10
-                      }}>
+                      <div>
                         <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <input
-                            type="checkbox"
-                            checked={invertGuide}
-                            onChange={(e) => setInvertGuide(e.target.checked)}
-                          />
-                          <span>로고 가이드 색상 반전</span>
+                          <div style={{
+  position: "absolute",
+  top: 6,
+  left: 6,
+  background: "rgba(255,255,255,0.85)",
+  padding: "6px 8px",
+  borderRadius: 6,
+  fontSize: "0.8em",
+  zIndex: 10
+}}>
+
+  {/* 지도/네플스: white/black */}
+  {(logoBrand === "map" || logoBrand === "nps") && (
+    <div style={{ display: "flex", gap: 6 }}>
+      {["white", "black"].map(m => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => setGuideColorMode(m)}
+          style={{
+            padding: "2px 4px",
+            borderRadius: 6,
+            border: guideColorMode === m ? "2px solid #2952eb" : "1px solid #ddd",
+            background: guideColorMode === m ? "#eef3ff" : "#fff",
+            fontWeight: guideColorMode === m ? 700 : 600,
+            cursor: "pointer"
+          }}
+        >
+          {m.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  )}
+
+  {/* 웹툰: green/white/black */}
+  {logoBrand === "webtoon" && (
+    <div style={{ display: "flex", gap: 6 }}>
+      {["green", "white", "black"].map(m => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => setGuideColorMode(m)}
+          style={{
+            padding: "2px 4px",
+            borderRadius: 6,
+            border: guideColorMode === m ? "2px solid #2952eb" : "1px solid #ddd",
+            background: guideColorMode === m ? "#eef3ff" : "#fff",
+            fontWeight: guideColorMode === m ? 700 : 600,
+            cursor: "pointer"
+          }}
+        >
+          {m.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
                         </label>
                       </div>
 
@@ -446,52 +731,89 @@ setBottomMainColor(hex);
                       />
 
                       {/* 가이드 이미지 */}
-                      {logoGuideIdx === 1 && logoPaddingCheck?.hasContent ? (
-                        <img
-                          src={currentGuideList[1].file}
-                          alt="세로형 가이드"
-                          style={{
-                            position: "absolute",
-                            left: 0,
-                            top: ((logoPaddingCheck?.bbox?.y0) ?? 0) / 2,
-                            width: "100%",
-                            height: "auto",
-                            opacity: logoGuideOpacity,
-                            filter: invertGuide ? "invert(1)" : "none",
-                            pointerEvents: "none"
-                          }}
-                        />
-                      ) : logoGuideIdx === 0 && logoPaddingCheck?.hasContent ? (
-                        <img
-                          src={currentGuideList[0].file}
-                          alt="가로형 가이드"
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: ((logoPaddingCheck?.bbox?.x0) ?? 0) / 2,
-                            height: "100%",
-                            width: "auto",
-                            opacity: logoGuideOpacity,
-                            filter: invertGuide ? "invert(1)" : "none",
-                            pointerEvents: "none"
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src={currentGuideList[logoGuideIdx].file}
-                          alt="가이드"
-                          style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            width: "100%",
-                            height: "100%",
-                            opacity: logoGuideOpacity,
-                            filter: invertGuide ? "invert(1)" : "none",
-                            pointerEvents: "none"
-                          }}
-                        />
-                      )}
+                      {/* 가이드 이미지 */}
+{(() => {
+  const g = currentGuideList[logoGuideIdx];
+  if (!g) return null;
+
+  const srcToUse = guideOverlaySrc || g.file;
+  
+  // ✅ 단독형: 항상 contain + 중앙
+  if (g.orientation === "ONLY") {
+    return (
+      <img
+        src={srcToUse}
+        alt="단독형 가이드"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          opacity: logoGuideOpacity,
+          pointerEvents: "none"
+        }}
+      />
+    );
+  }
+
+  const isVertical = g.orientation === "H";
+
+  if (logoPaddingCheck?.hasContent) {
+    if (isVertical) {
+      return (
+        <img
+          src={srcToUse}
+          alt="세로형 가이드"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: ((logoPaddingCheck?.bbox?.y0) ?? 0) / 2,
+            width: "100%",
+            height: "auto",
+            opacity: logoGuideOpacity,
+            pointerEvents: "none"
+          }}
+        />
+      );
+    }
+
+    return (
+      <img
+        src={srcToUse}
+        alt="가로형 가이드"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: ((logoPaddingCheck?.bbox?.x0) ?? 0) / 2,
+          height: "100%",
+          width: "auto",
+          opacity: logoGuideOpacity,
+          pointerEvents: "none"
+        }}
+      />
+    );
+  }
+
+  // fallback
+  return (
+    <img
+      src={srcToUse}
+      alt="가이드"
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        opacity: logoGuideOpacity,
+        pointerEvents: "none"
+      }}
+    />
+  );
+})()}
+
+
 
                       {/* 바운딩 박스 + 여백 */}
                       {logoPaddingCheck?.hasContent && (
@@ -617,6 +939,7 @@ setBottomMainColor(hex);
                       {currentGuideList.map((g, idx) => (
                         <button
                           key={g.file}
+                          className="logo-guide-btn"
                           style={{
                             fontWeight: logoGuideIdx === idx ? 700 : 500,
                             color: logoGuideIdx === idx ? "#2952eb" : "#777",
@@ -630,29 +953,38 @@ setBottomMainColor(hex);
                           onClick={() => setLogoGuideIdx(idx)}
                         >
                           {g.name}
-                          <span style={{ fontSize: "0.85em", marginLeft: 6, color: "#444" }}>
+                          <span style={{ fontSize: "0.9em", marginLeft: 6, color: "#999" }}>
                             (일치율 {logoErrorPercents[idx]
                               ? (100 - logoErrorPercents[idx] * 100).toFixed(1) + "%"
                               : "-"
                             })
                           </span>
-                          {logoErrorPercents.length > 0 &&
-                            idx === logoGuideIdx &&
-                            idx === logoErrorPercents.indexOf(Math.min(...logoErrorPercents)) && (
-                              <span
-                                style={{
-                                  marginLeft: 8,
-                                  padding: "2px 6px",
-                                  background: "linear-gradient(90deg,#448bff 45%,#65e5f5 98%)",
-                                  color: "#fff",
-                                  borderRadius: 4,
-                                  fontSize: "0.75em",
-                                  fontWeight: 600
-                                }}
-                              >
-                                추천
-                              </span>
-                            )}
+                          {(() => {
+  const hasScores = logoErrorPercents.length > 0;
+  const bestIdx = hasScores ? logoErrorPercents.indexOf(Math.min(...logoErrorPercents)) : -1;
+  const isBest = idx === bestIdx;
+
+  return (
+    <span
+      style={{
+        marginLeft: 8,
+        padding: "2px 6px",
+        background: "linear-gradient(90deg,#448bff 45%,#65e5f5 98%)",
+        color: "#fff",
+        borderRadius: 4,
+        fontSize: "0.75em",
+        fontWeight: 600,
+        display: "inline-block",
+        minWidth: 34,          // ✅ 자리 확보(폭 고정)
+        textAlign: "center",   // ✅ 중앙정렬
+        visibility: isBest ? "visible" : "hidden" // ✅ 안 보이더라도 공간 유지
+      }}
+    >
+      추천
+    </span>
+  );
+})()}
+
                         </button>
                       ))}
                       <div>
@@ -807,7 +1139,25 @@ setBottomMainColor(hex);
 {/* 수동 체크리스트 (기본가이드와 동일 UI) */}
 <div className="manual-checklist-title">수동 체크리스트</div>
 <div className="ad-info-box-check ad-info-box-check--manual">
-  {MANUAL_CHECK_ITEMS.map((item, idx) => (
+  {manualCheckItems.map((item) => {
+  const isMapContrastItem = item.id === "map_logo_contrast_choice";
+
+const guideText = isMapContrastItem
+  ? (
+    <span className="manual-check-guide--highlight">
+      배경색 <b>{bgColor.toUpperCase()}</b> 기준 대비율 ·
+      WHITE <span className="good">{mapWhiteCR.toFixed(2)}</span> /
+      BLACK <span className="bad">{mapBlackCR.toFixed(2)}</span>
+      &nbsp;→&nbsp;
+      <b>권장: {mapRecommendedLogo.toUpperCase()}</b>
+    </span>
+  )
+  : (
+    <span className="manual-check-guide">{item.guide}</span>
+  );
+
+
+  return (
     <div key={item.id} className="info-check-row manual-check-row">
       <label className="manual-check-label">
         <input
@@ -815,14 +1165,15 @@ setBottomMainColor(hex);
           checked={!!manualChecks[item.id]}
           onChange={() => toggleManualCheck(item.id)}
         />
-        <span className="manual-check-text">
-          {} {item.label}
-        </span>
+        <span className="manual-check-text">{item.label}</span>
       </label>
-      <span className="manual-check-guide">{item.guide}</span>
+      <span className="manual-check-guide">{guideText}</span>
     </div>
-  ))}
+  );
+})}
+
 </div>
+
                   
                 </>
               ) : (
@@ -998,6 +1349,32 @@ setBottomMainColor(hex);
                       </div>
                     </div>
                   </div>
+
+                  {/* 하단 기본가이드 체크 아래 */}
+<div style={{ marginTop: 30 }}>
+  <div className="manual-checklist-title">수동 체크리스트</div>
+  <div className="ad-info-box-check ad-info-box-check--manual">
+    {manualBottomCheckItems.map(item => (
+      <div key={item.id} className="info-check-row manual-check-row">
+        <label className="manual-check-label">
+          <input
+            type="checkbox"
+            checked={!!manualBottomChecks[item.id]}
+            onChange={() =>
+              setManualBottomChecks(prev => ({
+                ...prev,
+                [item.id]: !prev[item.id]
+              }))
+            }
+          />
+          <span className="manual-check-text">{item.label}</span>
+        </label>
+        <span className="manual-check-guide">{item.guide}</span>
+      </div>
+    ))}
+  </div>
+</div>
+
                 </>
               ) : (
                 <div className="tab-empty-msg">하단 이미지를 업로드해 주세요.</div>

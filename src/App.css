@@ -446,6 +446,7 @@ body {
   font-size: 0.9rem;
   font-weight: 500;
   border-radius: 5px;
+  border: 1px solid #e2e2e2;
   background: transparent;
   color: #878787;
   cursor: pointer;
@@ -509,15 +510,6 @@ body {
   font-weight: 600;
 }
 
-.manual-check-guide {
-  margin-top: 6px;
-  font-size: 0.94rem;
-  color: #566687;
-  line-height: 1.5;
-  border-left: 1px solid #e1e6f6;
-  padding-left: 10px;
-}
-
 .manual-check-guide-text {
   color: #354564;
 }
@@ -564,6 +556,7 @@ body {
   line-height: 1.45;
   flex: 1;
   margin-left: 6px;
+  white-space: pre-line;
 }
 
 /* 수동 체크리스트 제목 */
@@ -595,4 +588,36 @@ body {
   color: #1e293b;
   font-size: 1rem;
   margin-bottom: 6px;
+}
+
+/* 수동 가이드 강조 문구 */
+.manual-check-guide--highlight {
+  background: #f4f8ff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: #1e293b;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.manual-check-guide--highlight b {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.manual-check-guide--highlight .good {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.manual-check-guide--highlight .bad {
+  color: #000000;
+  font-weight: 700;
+}
+
+/* 로고 가이드 리스트 버튼 텍스트 좌측 정렬 */
+.logo-guide-btn {
+  display: flex;
+  align-items: flex-start;   /* ← 핵심 */
+  text-align: left;          /* ← 텍스트 좌측 정렬 */
 }
