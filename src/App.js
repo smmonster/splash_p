@@ -23,17 +23,17 @@ const WEBTOON_LOGO_GUIDE_LIST = [
   { name: "단독형", orientation: "ONLY", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_only.png" },
 ];
 
+const LOGO_MAX_SIZE_WEBTOON = 40 * 1024;
+const LOGO_MAX_SIZE_DEFAULT = 400 * 1024;
+const BOTTOM_MAX_SIZE_WEBTOON = 300 * 1024;
+const BOTTOM_MAX_SIZE_DEFAULT = 400 * 1024;
+
 // 수동 체크리스트 항목 (기준 문구 포함)
 const MANUAL_CHECK_COMMON = [
   {
     id: "check_size",
     label: "최소/최대 사이즈 확인",
     guide: "가로&세로 로고 최소/최대 사이즈를 벗어나지 않도록 제작 필요"
-  },
-  {
-    id: "check_logo",
-    label: "로고 위계 확인",
-    guide: "로고 영역에는 이벤트/캠페인 명이 아닌 브랜드로고만 적용 가능 (e.g. 네이버예약 O / 10주년 예약위크 X)"
   }
 ];
 
@@ -42,6 +42,11 @@ const MANUAL_CHECK_MAP = [
     id: "map_logo_contrast_choice",
     label: "지도 로고 컬러 (White/Black)",
     guide: "등록한 배경색과의 대비율이 더 큰 색(White/Black)으로 로고 제작 필요"
+  },
+  {
+    id: "map_check_logo",
+    label: "로고 위계 확인",
+    guide: "로고 영역에는 이벤트/캠페인 명이 아닌 브랜드로고만 적용 가능 (e.g. 네이버예약 O / 10주년 예약위크 X)"
   }
 ];
 
@@ -64,8 +69,14 @@ const MANUAL_CHECK_WEBTOON = [
   {
     id: "webtoon_divider",
     label: "로고 구분선 (디바이더)",
-    guide: "로고 간 디바이더는 투명도 없이 100%로 적용하며 배경 컬러에 따라 Black 또는 White 타입 사용"
+    guide: "로고 간 디바이더는 투명도 50%의 반투명으로 적용하며 배경 컬러에 따라 Black 또는 White 타입 사용"
+  },
+  {
+    id: "webtoon_check_logo",
+    label: "로고 위계 확인",
+    guide: "광고주 브랜드 로고는 상품&IP가 아닌 서비스 단위의 브랜드만 적용가능 (e.g. '아바타3' 불가, '디즈니' 가능)"
   } 
+
 ];
 
 const MANUAL_CHECK_BOTTOM_COMMON = [
@@ -110,7 +121,8 @@ const BOTTOM_WIDTH = 1400, BOTTOM_HEIGHT = 614;
 const BOTTOM_MAIN_AREA_W = 478;
 const BOTTOM_TEXT_AVOID_H = 60; // (지금은 사용 X, 유지만)
 const PREVIEW_MOBILE_W = 375, PREVIEW_MOBILE_H = 812;
-const ALLOWED_BOTTOM_EXTS = ["png", "jpg", "jpeg"];
+const getAllowedBottomExts = (brand) =>
+  brand === "webtoon" ? ["jpg"] : ["png", "jpg", "jpeg"];
 
 // --- 유틸 ---
 function formatSize(bytes) {
@@ -410,6 +422,25 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   const [bgCheck, setBgCheck] = useState({ s: 0, b: 0, pass: true });
   const [bgWasChosen, setBgWasChosen] = useState(false);
 
+  useEffect(() => {
+  // --- 로고 리셋 ---
+  setLogoImg(null);
+  setLogoInfo({});
+  setLogoGuideIdx(0);
+  setLogoErrorPercents([]);
+  setLogoPaddingCheck(null);
+
+  // --- 가이드 컬러도 디폴트로 ---
+  if (logoBrand === "webtoon") setGuideColorMode("green");
+  else setGuideColorMode("white");
+  setGuideOverlaySrc(null);
+
+  // --- 하단 리셋 ---
+  setBottomImg(null);
+  setBottomInfo({});
+  setBottomMainColor(null);
+}, [logoBrand]);
+
 const toggleManualCheck = (id) => {
   setManualChecks(prev => ({ ...prev, [id]: !prev[id] }));
 };
@@ -514,7 +545,8 @@ const toggleManualCheck = (id) => {
     if (!file) return;
 
     const ext = (file.name.split(".").pop() || "").toLowerCase();
-    const isAllowedFormat = ALLOWED_BOTTOM_EXTS.includes(ext);
+    const allowedExts = getAllowedBottomExts(logoBrand);
+    const isAllowedFormat = allowedExts.includes(ext);
 
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -547,7 +579,8 @@ setBottomMainColor(hex);
           size: file.size,
           ext,
           isTransparent,
-          isAllowedFormat
+          isAllowedFormat,
+          allowedExts
         });
       };
       img.src = ev.target.result;
@@ -1024,14 +1057,16 @@ setBottomMainColor(hex);
 
                       <div className="info-check-row">
                         <span className="info-check-icon">
-                          {logoInfo.size <= 400 * 1024
+                          {logoInfo.size <= (logoBrand === "webtoon" ? LOGO_MAX_SIZE_WEBTOON : LOGO_MAX_SIZE_DEFAULT)
                             ? <span className="check-green">✔</span>
                             : <span className="check-red">✖</span>}
                         </span>
                         <span className="info-check-label">용량</span>
                         <span className="info-check-value">
                           {formatSize(logoInfo.size)}
-                          <span className="guide-text"> (400KB 이하)</span>
+                          <span className="guide-text"> 
+                            {logoBrand === "webtoon" ? " (40KB 이하)" : " (400KB 이하)"}
+                          </span>
                         </span>
                       </div>
 
@@ -1191,7 +1226,7 @@ const guideText = isMapContrastItem
                   <input
                     id="bottom-upload"
                     type="file"
-                    accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                    accept={logoBrand === "webtoon" ? ".jpg,image/jpeg" : ".png,.jpg,.jpeg,image/png,image/jpeg"}
                     onChange={handleBottomChange}
                   />
                 </label>
@@ -1324,14 +1359,16 @@ const guideText = isMapContrastItem
 
                       <div className="info-check-row">
                         <span className="info-check-icon">
-                          {bottomInfo.size <= 400 * 1024
+                          {bottomInfo.size <= (logoBrand === "webtoon" ? BOTTOM_MAX_SIZE_WEBTOON : BOTTOM_MAX_SIZE_DEFAULT)
                             ? <span className="check-green">✔</span>
                             : <span className="check-red">✖</span>}
                         </span>
                         <span className="info-check-label">용량</span>
                         <span className="info-check-value">
                           {formatSize(bottomInfo.size)}
-                          <span className="guide-text"> (400KB 이하)</span>
+                          <span className="guide-text">
+                            {logoBrand === "webtoon" ? " (300KB 이하)" : " (400KB 이하)"}
+                          </span>
                         </span>
                       </div>
 
@@ -1344,7 +1381,9 @@ const guideText = isMapContrastItem
                         <span className="info-check-label">포맷</span>
                         <span className="info-check-value">
                           {bottomInfo.ext ? bottomInfo.ext.toUpperCase() : "-"}
-                          <span className="guide-text"> (허용: PNG / JPG / JPEG)</span>
+                          <span className="guide-text">
+                            {logoBrand === "webtoon" ? " (허용: JPG)" : " (허용: PNG / JPG / JPEG)"}
+                          </span>
                         </span>
                       </div>
                     </div>
