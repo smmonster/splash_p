@@ -54,7 +54,7 @@ const MANUAL_CHECK_WEBTOON = [
   {
     id: "webtoon_green_logo",
     label: "로고 색상",
-    guide: "광고주 로고 색상이 흰색/검은색 이라면, 웹툰 로고도 동일하게 흰색/검은색 사용 가능 (유색인 경우, 웹툰 로고는 녹색 유지)"
+    guide: "웹툰 로고는 녹색 사용을 기본 원칙, 광고주 로고 색상이 흰색 & 배경과의 가시성 고려해서 흰색 사용 가능"
   },
   {
     id: "webtoon_logo_type",
@@ -64,7 +64,7 @@ const MANUAL_CHECK_WEBTOON = [
   {
     id: "webtoon_logo_type2",
     label: "로고 단독형 사용",
-    guide: "웹툰 로고 단독형 사용 시 녹색 사용을 원칙으로 하며, 배경 색상에 따라 흰색 사용 가능 (검은색 사용 지양. 별도 협의)"
+    guide: "웹툰 로고는 녹색 사용을 기본 원칙, 광고주 로고 색상이 흰색 & 배경과의 가시성 고려해서 흰색 사용 가능"
   },
   {
     id: "webtoon_divider",
@@ -74,7 +74,7 @@ const MANUAL_CHECK_WEBTOON = [
   {
     id: "webtoon_check_logo",
     label: "로고 위계 확인",
-    guide: "광고주 브랜드 로고는 상품&IP가 아닌 서비스 단위의 브랜드만 적용가능 (e.g. '아바타3' 불가, '디즈니' 가능)"
+    guide: "광고주 브랜드 로고는 서비스 단위 브랜드로 적용 (상품 & IP를 사용하는 경우 별도 문의)"
   } 
 
 ];
