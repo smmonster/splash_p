@@ -328,37 +328,37 @@ body {
 /* ============= 탭 헤더 ============= */
 .tab-header-wrap {
   width: 100%;
-  border-bottom: 1px solid #e3e5ec;
-  padding-bottom: 2px;
-  margin-bottom: 6px;
+  margin-bottom: 18px;
 }
 .tab-header-row {
-  display: inline-flex;
-  gap: 4px;
-  background: #f1f3f7;
-  padding: 4px;
-  border-radius: 6px;
+  display: flex;
+  gap: 0;
+  border-bottom: 1.5px solid #ececec;
+  background: none;
+  padding: 0;
 }
 .tab-header-btn {
   background: none;
   border: none;
-  font-size: 0.95rem;
+  border-bottom: 2.5px solid transparent;
+  font-size: 1.07rem;
   font-weight: 600;
-  color: #6b7280;
-  padding: 8px 18px;
+  color: #aaa;
+  padding: 9px 24px 11px 24px;
   margin: 0;
   cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 0;
+  transition: color 0.17s, border-bottom 0.15s;
   outline: none;
 }
 .tab-header-btn.active {
-  background: #ffffff;
+  background: none;
   color: #111111;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  border-bottom: 2.5px solid #111111;
+  box-shadow: none;
 }
 .tab-header-btn:not(.active):hover {
-  color: #1f2937;
+  color: #222;
 }
 
 /* ============= 카드 내 컨텐츠 ============= */
