@@ -50,6 +50,95 @@ body {
 }
 
 /* ============= 메인 카드 & 기본 가이드 UI ============= */
+/* 좌측 트리 2단 레이아웃 */
+.full-layout {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.side-tree {
+  width: 240px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 24px 16px;
+  background: #e7e9f0;
+  border-right: 1px solid #d4d8e2;
+}
+
+.side-tree-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #23243a;
+  margin-bottom: 18px;
+  padding-left: 6px;
+}
+
+.tree,
+.tree-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-children {
+  padding-left: 14px;
+}
+
+.tree-branch {
+  font-weight: 700;
+  color: #4b5563;
+  padding: 6px 8px;
+  font-size: 0.92rem;
+}
+
+.tree-branch--sub {
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 0.88rem;
+}
+
+.tree-leaf {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  margin: 1px 0;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tree-leaf:hover {
+  background: #eceef3;
+  color: #1f2937;
+}
+
+.tree-leaf.active {
+  background: #383838;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.tree-leaf--external {
+  color: #2952eb;
+  margin-top: 10px;
+}
+
+.tree-leaf--external:hover {
+  background: #eef2ff;
+}
+
+.full-content {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+}
+
 .multi-overlay-root {
   min-height: 100vh;
   background: none;
@@ -60,13 +149,13 @@ body {
 }
 
 .multi-overlay-card {
-  background: #fff;
-  border-radius: 7px;
-  box-shadow: 0 3px 24px rgba(60,80,120,0.07);
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
   max-width: 900px;
   width: 100%;
   padding: 36px 40px 34px 40px;
-  margin-top: 36px;
+  margin-top: 0;
   display: flex;
   flex-direction: column;
   gap: 34px;
@@ -468,6 +557,54 @@ body {
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(80, 80, 80, 0.35);
   transform: translateY(-0.5px);
+}
+
+/* 상품유형 세그먼트 컨트롤 (웹툰앱 전용, 브랜드 모듈 아래) */
+/* 브랜드 + 상품유형 그룹: 두 모듈을 붙여서 한 묶음으로 */
+.brand-product-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.brand-product-group .brand-type-tab-row {
+  margin: 0;
+}
+.brand-product-group .product-type-seg {
+  /* 브랜드 행 가운데 쪽(살짝 왼쪽)에 정렬 */
+  margin: 0 0 0 50px;
+}
+
+.product-type-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: #eef1f4;
+  border-radius: 10px;
+}
+
+.product-type-seg-btn {
+  border: none;
+  outline: none;
+  padding: 7px 22px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.product-type-seg-btn:hover {
+  color: #374151;
+}
+
+.product-type-seg-btn.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 

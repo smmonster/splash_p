@@ -115,11 +115,31 @@ const MANUAL_CHECK_BOTTOM_WEBTOON = [
   // TODO: webtoon 브랜드 하단 수동검수 항목 (현재 없음)
 ];
 
+// 웹툰앱 동영상형 '하단 동영상' 수동 체크리스트
+const MANUAL_CHECK_BOTTOM_VIDEO = [
+  { id: "video_creative_area", label: "주요 크리에이티브 영역 준수",
+    guide: "중앙 주요 Creative 영역(점선 영역)에 핵심 비주얼이 배치되었는지 확인" },
+  { id: "video_text_avoid", label: "텍스트 배치 지양 영역 준수",
+    guide: "하단 텍스트 배치 지양 영역에 주요 정보가 포함되지 않았는지 확인" },
+  { id: "video_font", label: "사용 폰트 가이드 준수",
+    guide: "최대 2가지 폰트만 사용 가능, 브랜드 고유 폰트는 고딕형 사용 권장, 폰트 컬러는 최대 2가지만 사용 가능" },
+  { id: "video_bg", label: "동영상 배경 처리 방식",
+    guide: "배경이 있는 동영상은 영역을 모두 채우거나 자연스럽게 그라데이션 되도록 처리 권장" },
+  { id: "video_motion", label: "광고 동작으로 혼선을 줄 수 있는 요소 제한",
+    guide: "클릭/플레이/프로그레스 동작이 연상되는 이미지를 포함한 경우 사용 제한" },
+  { id: "video_restricted", label: "사용불가 및 제한되는 이미지 확인",
+    guide: "제품의 용도나 사용 모습 등이 혐오감을 주거나 신체 일부를 확대하여 혐오감을 주는 경우 노출 불가" },
+];
+
 
 const LOGO_WIDTH = 945, LOGO_HEIGHT = 720;
 const BOTTOM_WIDTH = 1400, BOTTOM_HEIGHT = 614;
 const BOTTOM_MAIN_AREA_W = 478;
 const PREVIEW_MOBILE_W = 375, PREVIEW_MOBILE_H = 812;
+// 하단 동영상 길이 기준 (초). 허용오차 ±0.05 → 1.45~2.05 통과
+const BOTTOM_VIDEO_DURATION_MIN = 1.5;
+const BOTTOM_VIDEO_DURATION_MAX = 2.0;
+const BOTTOM_VIDEO_DURATION_TOL = 0.05;
 const getAllowedBottomExts = (brand) =>
   brand === "webtoon" ? ["jpg"] : ["png", "jpg", "jpeg"];
 
@@ -296,15 +316,119 @@ const TYPE_LIST = [
   { key: "normal", label: "일반형", url: "https://smmonster.github.io/splash/" },
   { key: "full", label: "전면형", url: "/full" },
 ];
-const FULL_TAB_LIST = [
-  { key: "logo", label: "로고 이미지" },
-  { key: "bottom", label: "하단 이미지" },
-  { key: "preview", label: "미리보기" }
-];
+// 브랜드/상품유형에 따라 서브 탭 목록 반환 (웹툰앱+동영상형만 4탭)
+function getTabs(logoBrand, productType) {
+  if (logoBrand === "webtoon" && productType === "video") {
+    return [
+      { key: "logo", label: "로고 이미지" },
+      { key: "bottom", label: "하단 썸네일" },
+      { key: "bottomVideo", label: "하단 동영상" },
+      { key: "preview", label: "미리보기" },
+    ];
+  }
+  return [
+    { key: "logo", label: "로고 이미지" },
+    { key: "bottom", label: "하단 이미지" },
+    { key: "preview", label: "미리보기" },
+  ];
+}
+
+// 하단 가이드 오버레이 프레임 (이미지/동영상 공용). mediaEl = <img> 또는 <video>
+function renderBottomGuideFrame(mediaEl, opacity, setOpacity) {
+  return (
+    <>
+      <div style={{ width: BOTTOM_WIDTH / 2, height: BOTTOM_HEIGHT / 2, background: "#fafcff", border: "1px solid #eaeaea", position: "relative" }}>
+        {mediaEl}
+
+        {/* 좌측 불투명 레이어 */}
+        <div style={{ position: "absolute", top: 0, left: 0, width: (461 / 2) + "px", height: (BOTTOM_HEIGHT / 2) + "px", background: `rgba(0,0,0,${opacity})` }} />
+
+        {/* 우측 불투명 레이어 */}
+        <div style={{ position: "absolute", top: 0, right: 0, width: (461 / 2) + "px", height: (BOTTOM_HEIGHT / 2) + "px", background: `rgba(0,0,0,${opacity})` }} />
+
+        <div style={{ position: "absolute", top: 1, left: 471, color: "white", fontWeight: "bold", fontSize: "0.75em", background: "rgba(255, 0, 0, 0.6)", padding: 2, borderRadius: 2 }}>
+          주요 Creative 영역
+        </div>
+
+        {/* 중앙 빨간 점선 테두리 */}
+        <div style={{ position: "absolute", top: 0, left: 461 / 2, width: BOTTOM_MAIN_AREA_W / 2, height: "100%", boxSizing: "border-box", border: "2px dashed red", pointerEvents: "none" }}>
+          {/* 중앙하단 텍스트 회피 영역 */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 30, background: "rgba(20, 0, 149, 0.5)", display: "flex" }}></div>
+        </div>
+
+        <div style={{ position: "absolute", top: 275, left: 471, color: "white", fontWeight: "bold", fontSize: "0.75em", background: "rgba(20, 0, 149, 0.5)", padding: 2, borderRadius: 2 }}>
+          주요 텍스트 배치 지양 영역
+        </div>
+      </div>
+
+      {/* ▼ 투명도 조절바 */}
+      <div style={{ marginTop: 10 }}>
+        <b>투명도</b>
+        <input type="range" min={0} max={1} step={0.05} value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} style={{ marginLeft: 10, verticalAlign: "middle" }} />
+        <span style={{ marginLeft: 8, fontSize: "0.9em", fontWeight: 600 }}>{Math.round(opacity * 100)}%</span>
+      </div>
+    </>
+  );
+}
+
+// 모바일 미리보기 카드 (상단 55% 로고 + 하단 45% 미디어). bottomMediaEl = <img> 또는 <video>
+function renderPreviewCard(logoImg, bgColor, bottomMediaEl) {
+  return (
+    <div
+      style={{
+        width: PREVIEW_MOBILE_W,
+        height: PREVIEW_MOBILE_H,
+        position: "relative",
+        borderRadius: 28,
+        overflow: "hidden",
+        background: bgColor,
+        border: "8px solid #e5e7eb",
+       boxShadow: "0 6px 24px rgba(0,0,0,0.15)"
+      }}
+    >
+      {/* 상단 55%: 로고 영역 */}
+      <div
+        style={{
+          height: "55%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}
+      >
+        {logoImg && (
+          <img
+            src={logoImg}
+            alt="로고"
+            style={{
+              width: "315px",
+              height: "240px",
+              objectFit: "contain"
+            }}
+          />
+        )}
+      </div>
+
+      {/* 하단 45%: 하단 미디어 */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: "45%",
+          overflow: "hidden"
+        }}
+      >
+        {bottomMediaEl}
+      </div>
+    </div>
+  );
+}
 
 export default function FullSplashMaterialCheck() {
   const [fullTab, setFullTab] = useState("logo");
   const [logoBrand, setLogoBrand] = useState("map"); // 기본: 지도
+  const [productType, setProductType] = useState("image"); // 웹툰앱 상품유형: image | video
 
   // 로고
   const [logoImg, setLogoImg] = useState(null);
@@ -391,6 +515,12 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   const [bottomInfo, setBottomInfo] = useState({});
   const [bottomOverlayOpacity, setBottomOverlayOpacity] = useState(0.3);
 
+  // 하단 동영상 (웹툰앱 동영상형)
+  const [bottomVideoSrc, setBottomVideoSrc] = useState(null);
+  const [bottomVideoInfo, setBottomVideoInfo] = useState({});
+  const [bottomVideoOverlayOpacity, setBottomVideoOverlayOpacity] = useState(0.3);
+  const [manualVideoChecks, setManualVideoChecks] = useState({});
+
   // 배경색
   const [bgColor, setBgColor] = useState("#000000");
   const [bgHexInput, setBgHexInput] = useState("#000000");
@@ -414,7 +544,18 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   setBottomImg(null);
   setBottomInfo({});
   setBottomMainColor(null);
-}, [logoBrand]);
+
+  // --- 하단 동영상 리셋 (objectURL 정리) ---
+  setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+  setBottomVideoInfo({});
+  setManualVideoChecks({});
+}, [logoBrand, productType]);
+
+// 브랜드/상품유형 변경으로 현재 탭이 사라지면 로고 탭으로 폴백
+useEffect(() => {
+  const valid = getTabs(logoBrand, productType).some(t => t.key === fullTab);
+  if (!valid) setFullTab("logo");
+}, [logoBrand, productType, fullTab]);
 
 const toggleManualCheck = (id) => {
   setManualChecks(prev => ({ ...prev, [id]: !prev[id] }));
@@ -563,6 +704,56 @@ setBottomMainColor(hex);
     reader.readAsDataURL(file);
   };
 
+  // 하단 동영상 업로드 (메타데이터 + 오디오 트랙 검출)
+  const handleBottomVideoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const isMp4 = ext === "mp4" || file.type === "video/mp4";
+
+    // 이전 objectURL 정리 후 새로 생성
+    setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+    const url = URL.createObjectURL(file);
+    setBottomVideoSrc(url);
+
+    const probe = document.createElement("video");
+    probe.preload = "metadata";
+    probe.muted = true;
+    probe.src = url;
+
+    // 오디오 트랙 검출(자동→실패 시 null=수동 폴백)
+    const detectAudio = () => {
+      if (typeof probe.mozHasAudio === "boolean") return probe.mozHasAudio;
+      if (typeof probe.webkitAudioDecodedByteCount === "number")
+        return probe.webkitAudioDecodedByteCount > 0;
+      if (probe.audioTracks && typeof probe.audioTracks.length === "number")
+        return probe.audioTracks.length > 0;
+      return null; // 판별 불가
+    };
+
+    const finish = (hasAudio) => {
+      setBottomVideoInfo({
+        w: probe.videoWidth,
+        h: probe.videoHeight,
+        durationSec: probe.duration,
+        size: file.size,
+        ext,
+        isMp4,
+        hasAudio,
+      });
+    };
+
+    probe.onloadedmetadata = () => {
+      // 오디오 디코드 카운트를 얻기 위해 짧게 muted 재생 후 판정
+      const immediate = detectAudio();
+      if (immediate !== null) { finish(immediate); return; }
+      const settle = () => { probe.pause(); finish(detectAudio()); };
+      probe.play().then(() => setTimeout(settle, 150)).catch(() => finish(detectAudio()));
+    };
+    probe.onerror = () => finish(null);
+  };
+
   const contrastColor = getContrastColor(bgColor);
   const mapWhiteCR = contrastRatio(bgColor, "#ffffff");
   const mapBlackCR = contrastRatio(bgColor, "#000000");
@@ -570,48 +761,68 @@ setBottomMainColor(hex);
 
 
   return (
-    <div>
-      {/* 상단 탭 (일반형 / 전면형) */}
-<div className="top-type-tab-row">
-  {TYPE_LIST.map(type => (
-    <button
-      key={type.key}
-      className={`top-type-tab-btn${type.key === "full" ? " active" : ""}`}
-      onClick={() => {
-        if (type.key !== "full") window.location.href = type.url;
-      }}
-    >
-      {type.label}
-    </button>
-  ))}
-</div>
+    <div className="full-layout">
+      {/* 좌측 트리 내비게이션 */}
+      <aside className="side-tree">
+        <div className="side-tree-title">스플래시 검수</div>
+        <ul className="tree">
+          <li>
+            <div className="tree-branch">전면형</div>
+            <ul className="tree-children">
+              <li>
+                <button
+                  className={`tree-leaf${logoBrand === "map" ? " active" : ""}`}
+                  onClick={() => { setLogoBrand("map"); setProductType("image"); }}
+                  type="button"
+                >지도앱</button>
+              </li>
+              <li>
+                <div className="tree-branch tree-branch--sub">웹툰앱</div>
+                <ul className="tree-children">
+                  <li>
+                    <button
+                      className={`tree-leaf${logoBrand === "webtoon" && productType === "image" ? " active" : ""}`}
+                      onClick={() => { setLogoBrand("webtoon"); setProductType("image"); }}
+                      type="button"
+                    >이미지형</button>
+                  </li>
+                  <li>
+                    <button
+                      className={`tree-leaf${logoBrand === "webtoon" && productType === "video" ? " active" : ""}`}
+                      onClick={() => { setLogoBrand("webtoon"); setProductType("video"); }}
+                      type="button"
+                    >동영상형</button>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <button
+                  className={`tree-leaf${logoBrand === "nps" ? " active" : ""}`}
+                  onClick={() => { setLogoBrand("nps"); setProductType("image"); }}
+                  type="button"
+                >네이버플러스스토어</button>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <button
+              className="tree-leaf tree-leaf--external"
+              onClick={() => { window.location.href = TYPE_LIST.find(t => t.key === "normal").url; }}
+              type="button"
+            >일반형 ↗</button>
+          </li>
+        </ul>
+      </aside>
 
-
+      {/* 우측 콘텐츠 */}
+      <div className="full-content">
       <div className="multi-overlay-root">
         
         <div className="multi-overlay-card">
-          {/* 브랜드 탭 (지도 / 네플스) */}
-<div className="brand-type-tab-row">
-  {[
-    { key: "map", label: "지도앱" },
-    { key: "webtoon", label: "웹툰앱" },
-    { key: "nps", label: "네이버플러스스토어" },
-  ].map(brand => (
-    <button
-      key={brand.key}
-      className={`brand-type-tab-btn${logoBrand === brand.key ? " active" : ""}`}
-      onClick={() => setLogoBrand(brand.key)}
-      type="button"
-    >
-      {brand.label}
-    </button>
-  ))}
-</div>
-          <h1 className="multi-overlay-title">스플래시 광고 전면형 검수</h1>
 
           {/* 서브 탭 */}
           <div className="tab-header-row" style={{ marginBottom: 32 }}>
-            {FULL_TAB_LIST.map(tab => (
+            {getTabs(logoBrand, productType).map(tab => (
               <button key={tab.key}
                 className={`tab-header-btn${fullTab === tab.key ? " active" : ""}`}
                 onClick={() => setFullTab(tab.key)}>
@@ -1208,112 +1419,11 @@ const guideText = isMapContrastItem
               </div>
               {bottomImg ? (
                 <>
-                  <div style={{ width: BOTTOM_WIDTH / 2, height: BOTTOM_HEIGHT / 2, background: "#fafcff", border: "1px solid #eaeaea", position: "relative" }}>
-                    <img src={bottomImg} alt="하단" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-
-                    {/* 좌측 불투명 레이어 */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: (461 / 2) + "px",
-                        height: (BOTTOM_HEIGHT / 2) + "px",
-                        background: `rgba(0,0,0,${bottomOverlayOpacity})`
-                      }}
-                    />
-
-                    {/* 우측 불투명 레이어 */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        right: 0,
-                        width: (461 / 2) + "px",
-                        height: (BOTTOM_HEIGHT / 2) + "px",
-                        background: `rgba(0,0,0,${bottomOverlayOpacity})`
-                      }}
-                    />
-
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 1,
-                        left: 471,
-                        color: "white",
-                        fontWeight: "bold",
-                        fontSize: "0.75em",
-                        background: "rgba(255, 0, 0, 0.6)",
-                        padding: 2,
-                        borderRadius: 2
-                      }}
-                    >
-                      주요 Creative 영역
-                    </div>
-
-                    {/* 중앙 빨간 점선 테두리 */}
-                    <div style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 461 / 2,
-                      width: BOTTOM_MAIN_AREA_W / 2,
-                      height: "100%",
-                      boxSizing: "border-box",
-                      border: "2px dashed red",
-                      pointerEvents: "none"
-                    }}
-                    >
-
-                      {/* 중앙하단 텍스트 회피 영역 */}
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: 0,
-                          left: 0,
-                          width: "100%",
-                          height: 30,
-                          background: "rgba(20, 0, 149, 0.5)",
-                          display: "flex"
-                        }}
-                      >
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 275,
-                        left: 471,
-                        color: "white",
-                        fontWeight: "bold",
-                        fontSize: "0.75em",
-                        background: "rgba(20, 0, 149, 0.5)",
-                        padding: 2,
-                        borderRadius: 2
-                      }}
-                    >
-                      주요 텍스트 배치 지양 영역
-                    </div>
-
-                    
-                  </div>
-
-                  {/* ▼ 투명도 조절바 */}
-                  <div style={{ marginTop: 10 }}>
-                    <b>투명도</b>
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={bottomOverlayOpacity}
-                      onChange={(e) => setBottomOverlayOpacity(parseFloat(e.target.value))}
-                      style={{ marginLeft: 10, verticalAlign: "middle" }}
-                    />
-                    <span style={{ marginLeft: 8, fontSize: "0.9em", fontWeight: 600 }}>
-                      {Math.round(bottomOverlayOpacity * 100)}%
-                    </span>
-                  </div>
+                  {renderBottomGuideFrame(
+                    <img src={bottomImg} alt="하단" style={{ width: "100%", height: "100%", objectFit: "contain" }} />,
+                    bottomOverlayOpacity,
+                    setBottomOverlayOpacity
+                  )}
 
                   {/* 기본가이드 체크 */}
                   <div style={{ marginTop: 40 }}>
@@ -1396,6 +1506,152 @@ const guideText = isMapContrastItem
             </div>
           )}
 
+          {/* 하단 동영상 탭 (웹툰앱 동영상형) */}
+          {fullTab === "bottomVideo" && (
+            <div>
+              <div className="overlay-upload-area">
+                <label htmlFor="bottom-video-upload" className="overlay-upload-btn">
+                  <span className="upload-arrow" /> 하단 동영상 업로드
+                  <input
+                    id="bottom-video-upload"
+                    type="file"
+                    accept=".mp4,video/mp4"
+                    onChange={handleBottomVideoChange}
+                  />
+                </label>
+              </div>
+              {bottomVideoSrc ? (
+                <>
+                  {renderBottomGuideFrame(
+                    <video
+                      src={bottomVideoSrc}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                    />,
+                    bottomVideoOverlayOpacity,
+                    setBottomVideoOverlayOpacity
+                  )}
+
+                  {/* 기본가이드 체크 (동영상) */}
+                  <div style={{ marginTop: 40 }}>
+                    <b>기본가이드 체크</b>
+                    <div className="ad-info-box-check">
+                      {/* 사이즈 */}
+                      <div className="info-check-row">
+                        <span className="info-check-icon">
+                          {bottomVideoInfo.w === BOTTOM_WIDTH && bottomVideoInfo.h === BOTTOM_HEIGHT
+                            ? <span className="check-green">✔</span>
+                            : <span className="check-red">✖</span>}
+                        </span>
+                        <span className="info-check-label">사이즈</span>
+                        <span className="info-check-value">
+                          {bottomVideoInfo.w}x{bottomVideoInfo.h}
+                          <span className="guide-text"> (가로 1400px, 세로 614px)</span>
+                        </span>
+                      </div>
+
+                      {/* 포맷 */}
+                      <div className="info-check-row">
+                        <span className="info-check-icon">
+                          {bottomVideoInfo.isMp4
+                            ? <span className="check-green">✔</span>
+                            : <span className="check-red">✖</span>}
+                        </span>
+                        <span className="info-check-label">포맷</span>
+                        <span className="info-check-value">
+                          {bottomVideoInfo.ext ? bottomVideoInfo.ext.toUpperCase() : "-"}
+                          <span className="guide-text"> (허용: MP4)</span>
+                        </span>
+                      </div>
+
+                      {/* 영상 길이 */}
+                      <div className="info-check-row">
+                        <span className="info-check-icon">
+                          {typeof bottomVideoInfo.durationSec === "number" &&
+                          bottomVideoInfo.durationSec >= BOTTOM_VIDEO_DURATION_MIN - BOTTOM_VIDEO_DURATION_TOL &&
+                          bottomVideoInfo.durationSec <= BOTTOM_VIDEO_DURATION_MAX + BOTTOM_VIDEO_DURATION_TOL
+                            ? <span className="check-green">✔</span>
+                            : <span className="check-red">✖</span>}
+                        </span>
+                        <span className="info-check-label">영상 길이</span>
+                        <span className="info-check-value">
+                          {typeof bottomVideoInfo.durationSec === "number"
+                            ? bottomVideoInfo.durationSec.toFixed(2) + "초"
+                            : "-"}
+                          <span className="guide-text"> (1.5초 ~ 2.0초)</span>
+                        </span>
+                      </div>
+
+                      {/* 용량 (표시만) */}
+                      <div className="info-check-row">
+                        <span className="info-check-icon">
+                          <span className="guide-text">·</span>
+                        </span>
+                        <span className="info-check-label">용량</span>
+                        <span className="info-check-value">
+                          {formatSize(bottomVideoInfo.size)}
+                          <span className="guide-text"> (제한 없음)</span>
+                        </span>
+                      </div>
+
+                      {/* 사운드 제외 여부 */}
+                      <div className="info-check-row">
+                        <span className="info-check-icon">
+                          {bottomVideoInfo.hasAudio === false
+                            ? <span className="check-green">✔</span>
+                            : bottomVideoInfo.hasAudio === true
+                              ? <span className="check-red">✖</span>
+                              : <span style={{ color: "#b8860b", fontWeight: "bold" }}>❔</span>}
+                        </span>
+                        <span className="info-check-label">사운드 제외</span>
+                        <span className="info-check-value">
+                          {bottomVideoInfo.hasAudio === false
+                            ? "오디오 트랙 없음"
+                            : bottomVideoInfo.hasAudio === true
+                              ? "오디오 트랙 포함"
+                              : "자동 확인 불가"}
+                          <span className="guide-text">
+                            {bottomVideoInfo.hasAudio === null ? " (수동 확인 필요)" : " (오디오 트랙 제외 권장)"}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 수동 체크리스트 (동영상) */}
+                  <div style={{ marginTop: 30 }}>
+                    <div className="manual-checklist-title">수동 체크리스트</div>
+                    <div className="ad-info-box-check ad-info-box-check--manual">
+                      {MANUAL_CHECK_BOTTOM_VIDEO.map(item => (
+                        <div key={item.id} className="info-check-row manual-check-row">
+                          <label className="manual-check-label">
+                            <input
+                              type="checkbox"
+                              checked={!!manualVideoChecks[item.id]}
+                              onChange={() =>
+                                setManualVideoChecks(prev => ({
+                                  ...prev,
+                                  [item.id]: !prev[item.id]
+                                }))
+                              }
+                            />
+                            <span className="manual-check-text">{item.label}</span>
+                          </label>
+                          <span className="manual-check-guide">{item.guide}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="tab-empty-msg">하단 동영상을 업로드해 주세요.</div>
+              )}
+            </div>
+          )}
+
           {/* 미리보기 탭 */}
           {fullTab === "preview" && (
             <div>
@@ -1410,7 +1666,7 @@ const guideText = isMapContrastItem
       </p>
     </div>
 
-              {(!logoImg || !bottomImg || !bgWasChosen) ? (
+              {(!logoImg || !bottomImg || !bgWasChosen || (productType === "video" && !bottomVideoSrc)) ? (
   <div
     style={{
       border: "1px solid #eee",
@@ -1455,12 +1711,27 @@ const guideText = isMapContrastItem
       )}
       {!bottomImg && (
         <li style={{ margin: "12px 0" }}>
-          하단 이미지를 업로드해 주세요.&nbsp;
+          {productType === "video" ? "하단 썸네일을 업로드해 주세요." : "하단 이미지를 업로드해 주세요."}&nbsp;
           <a
             href="#bottom"
             onClick={(e) => {
               e.preventDefault();
               setFullTab("bottom");
+            }}
+            style={{ color: "#2952eb", textDecoration: "underline", cursor: "pointer" }}
+          >
+            link
+          </a>
+        </li>
+      )}
+      {productType === "video" && !bottomVideoSrc && (
+        <li style={{ margin: "12px 0" }}>
+          하단 동영상을 업로드해 주세요.&nbsp;
+          <a
+            href="#bottomVideo"
+            onClick={(e) => {
+              e.preventDefault();
+              setFullTab("bottomVideo");
             }}
             style={{ color: "#2952eb", textDecoration: "underline", cursor: "pointer" }}
           >
@@ -1482,72 +1753,59 @@ const guideText = isMapContrastItem
       marginTop: 20
     }}
   >
-    {/* ▼ 미리보기 박스 */}
-    <div
-      style={{
-        width: PREVIEW_MOBILE_W,
-        height: PREVIEW_MOBILE_H,
-        position: "relative",
-        borderRadius: 28,
-        overflow: "hidden",
-        background: bgColor,
-        border: "8px solid #e5e7eb",   
-       boxShadow: "0 6px 24px rgba(0,0,0,0.15)" 
-      }}
-    >
-      {/* 상단 55%: 로고 영역 */}
-      <div
-        style={{
-          height: "55%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center"
-        }}
-      >
-        {logoImg && (
-          <img
-            src={logoImg}
-            alt="로고"
-            style={{
-              width: "315px",
-              height: "240px",
-              objectFit: "contain"
-            }}
-          />
-        )}
-      </div>
-
-      {/* 하단 45%: 하단 이미지 */}
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: "45%",
-          overflow: "hidden"
-        }}
-      >
-        {bottomImg && (
+    {/* ▼ 미리보기 박스 (동영상형: 썸네일 | 동영상 2분할) */}
+    {productType === "video" ? (
+      <>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ marginBottom: 8, fontWeight: 600, fontSize: "0.9em" }}>썸네일</div>
+          {renderPreviewCard(
+            logoImg,
+            bgColor,
+            bottomImg && (
+              <img
+                src={bottomImg}
+                alt="하단 썸네일"
+                style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", height: "100%", width: "auto", objectFit: "cover" }}
+              />
+            )
+          )}
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ marginBottom: 8, fontWeight: 600, fontSize: "0.9em" }}>동영상</div>
+          {renderPreviewCard(
+            logoImg,
+            bgColor,
+            bottomVideoSrc && (
+              <video
+                src={bottomVideoSrc}
+                autoPlay
+                loop
+                muted
+                playsInline
+                style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", height: "100%", width: "auto", objectFit: "cover" }}
+              />
+            )
+          )}
+        </div>
+      </>
+    ) : (
+      renderPreviewCard(
+        logoImg,
+        bgColor,
+        bottomImg && (
           <img
             src={bottomImg}
             alt="하단"
-            style={{
-              position: "absolute",
-              left: "50%",
-              transform: "translateX(-50%)",
-              height: "100%",
-              width: "auto",
-              objectFit: "cover"
-            }}
+            style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", height: "100%", width: "auto", objectFit: "cover" }}
           />
-        )}
-      </div>
-    </div>
+        )
+      )
+    )}
 
-    {/* ▼ 오른쪽 컬러정보 패널 */}
+    {/* ▼ 컬러정보 패널 (동영상형: 좌측 썸네일 왼쪽으로 / 이미지형: 우측 유지) */}
     <div
       style={{
+        order: productType === "video" ? -1 : 0,
         background: "rgba(255,255,255,0.95)",
         border: "1px solid #d4d7e2",
         boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
@@ -1609,6 +1867,7 @@ const guideText = isMapContrastItem
         </div>
 
         <div className="multi-overlay-footer">ⓒ {new Date().getFullYear()} 광고 소재 검수 툴</div>
+      </div>
       </div>
     </div>
   );
