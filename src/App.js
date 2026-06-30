@@ -957,7 +957,7 @@ setBottomMainColor(hex);
           style={{
             padding: "2px 4px",
             borderRadius: 6,
-            border: guideColorMode === m ? "2px solid #2952eb" : "1px solid #ddd",
+            border: guideColorMode === m ? "2px solid #2b2f38" : "1px solid #ddd",
             background: guideColorMode === m ? "#eef3ff" : "#fff",
             fontWeight: guideColorMode === m ? 700 : 600,
             cursor: "pointer"
@@ -980,7 +980,7 @@ setBottomMainColor(hex);
           style={{
             padding: "2px 4px",
             borderRadius: 6,
-            border: guideColorMode === m ? "2px solid #2952eb" : "1px solid #ddd",
+            border: guideColorMode === m ? "2px solid #2b2f38" : "1px solid #ddd",
             background: guideColorMode === m ? "#eef3ff" : "#fff",
             fontWeight: guideColorMode === m ? 700 : 600,
             cursor: "pointer"
@@ -1215,8 +1215,8 @@ setBottomMainColor(hex);
                           className="logo-guide-btn"
                           style={{
                             fontWeight: logoGuideIdx === idx ? 700 : 500,
-                            color: logoGuideIdx === idx ? "#2952eb" : "#777",
-                            border: logoGuideIdx === idx ? "2px solid #2952eb" : "1px solid #ddd",
+                            color: logoGuideIdx === idx ? "#2b2f38" : "#777",
+                            border: logoGuideIdx === idx ? "2px solid #2b2f38" : "1px solid #ddd",
                             background: "#fff",
                             borderRadius: 4,
                             padding: "4px 14px",
@@ -1750,7 +1750,7 @@ const guideText = isMapContrastItem
               e.preventDefault();
               setFullTab("logo");
             }}
-            style={{ color: "#2952eb", textDecoration: "underline", cursor: "pointer" }}
+            style={{ color: "#2b2f38", textDecoration: "underline", cursor: "pointer" }}
           >
             link
           </a>
@@ -1765,7 +1765,7 @@ const guideText = isMapContrastItem
               e.preventDefault();
               setFullTab("logo");
             }}
-            style={{ color: "#2952eb", textDecoration: "underline", cursor: "pointer" }}
+            style={{ color: "#2b2f38", textDecoration: "underline", cursor: "pointer" }}
           >
             link
           </a>
@@ -1780,7 +1780,7 @@ const guideText = isMapContrastItem
               e.preventDefault();
               setFullTab("bottom");
             }}
-            style={{ color: "#2952eb", textDecoration: "underline", cursor: "pointer" }}
+            style={{ color: "#2b2f38", textDecoration: "underline", cursor: "pointer" }}
           >
             link
           </a>
@@ -1795,7 +1795,7 @@ const guideText = isMapContrastItem
               e.preventDefault();
               setFullTab("bottomVideo");
             }}
-            style={{ color: "#2952eb", textDecoration: "underline", cursor: "pointer" }}
+            style={{ color: "#2b2f38", textDecoration: "underline", cursor: "pointer" }}
           >
             link
           </a>
