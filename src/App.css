@@ -58,20 +58,33 @@ body {
 }
 
 .side-tree {
-  width: 240px;
+  width: 252px;
   flex-shrink: 0;
   box-sizing: border-box;
-  padding: 24px 16px;
-  background: #e7e9f0;
-  border-right: 1px solid #d4d8e2;
+  padding: 26px 14px;
+  background: #f1f3f7;
+  border-right: 1px solid #e1e4ec;
 }
 
 .side-tree-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #23243a;
-  margin-bottom: 18px;
-  padding-left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #1b1c2e;
+  letter-spacing: -0.3px;
+  margin: 2px 0 22px;
+  padding: 0 8px 16px;
+  border-bottom: 1px solid #ebedf2;
+}
+
+.side-tree-title::before {
+  content: "";
+  width: 7px;
+  height: 18px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #6b8afd, #3b5bdb);
 }
 
 .tree,
@@ -82,20 +95,50 @@ body {
 }
 
 .tree-children {
-  padding-left: 14px;
+  position: relative;
+  padding-left: 16px;
+  margin-left: 10px;
+  border-left: 1px solid #e7e9ef;
 }
 
+.tree-divider {
+  height: 0;
+  border-top: 1px solid #ebedf2;
+  margin: 12px 6px;
+}
+
+/* 섹션 라벨 (전면형) — 일반형과 동일 크기 */
 .tree-branch {
+  font-size: 0.9rem;
   font-weight: 700;
-  color: #4b5563;
-  padding: 6px 8px;
-  font-size: 0.92rem;
+  letter-spacing: normal;
+  color: #6b7280;
+  padding: 8px 12px 4px;
 }
 
-.tree-branch--sub {
+/* 클릭 가능한 분기(웹툰앱) — 일반 항목과 동일 외형 */
+.tree-branch--sub.tree-branch--btn {
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #6b7280;
-  font-size: 0.88rem;
+  color: #4b5563;
+  letter-spacing: normal;
+  padding: 9px 12px;
+}
+
+.tree-branch--btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tree-branch--btn:hover {
+  background: #eef0f5;
+  color: #1f2937;
 }
 
 .tree-leaf {
@@ -104,33 +147,35 @@ body {
   text-align: left;
   border: none;
   background: transparent;
-  padding: 6px 10px;
-  margin: 1px 0;
-  border-radius: 6px;
-  font-size: 0.88rem;
+  padding: 9px 12px;
+  margin: 2px 0;
+  border-radius: 9px;
+  font-size: 0.9rem;
   color: #4b5563;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .tree-leaf:hover {
-  background: #eceef3;
+  background: #eef0f5;
   color: #1f2937;
 }
 
 .tree-leaf.active {
-  background: #383838;
-  color: #ffffff;
-  font-weight: 600;
+  background: #ffffff;
+  color: #3b5bdb;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(40, 60, 120, 0.12), 0 0 0 1px #e4e8f7;
 }
 
 .tree-leaf--external {
-  color: #2952eb;
-  margin-top: 10px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .tree-leaf--external:hover {
-  background: #eef2ff;
+  background: #eef0f5;
+  color: #3b5bdb;
 }
 
 .full-content {
@@ -144,8 +189,8 @@ body {
   background: none;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 0;
+  align-items: flex-start;
+  padding: 0 0 0 12px;
 }
 
 .multi-overlay-card {
@@ -158,7 +203,7 @@ body {
   margin-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 34px;
+  gap: 16px;
 }
 
 .multi-overlay-title {
@@ -179,8 +224,54 @@ body {
 
 .overlay-upload-area {
   width: 100%;
-  text-align: left;
-  margin-bottom: 4px;
+  box-sizing: border-box;
+  margin-bottom: 28px;
+  border: 1.5px dashed #b9cdf0;
+  border-radius: 4px;
+  background: #f2f7fe;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.overlay-upload-area.drag-over {
+  border-color: #3b5bdb;
+  background: #e4edff;
+}
+
+.upload-dropzone-icon {
+  color: #9bb1e3;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.overlay-upload-area.drag-over .upload-dropzone-icon {
+  color: #3b5bdb;
+}
+
+.upload-dropzone-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 12px 20px;
+  cursor: pointer;
+}
+
+.upload-dropzone-title {
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: #7b818d;
+  line-height: 1.2;
+}
+
+.upload-dropzone-sub {
+  font-size: 0.85rem;
+  color: #9aa0ad;
 }
 
 .overlay-upload-btn {
@@ -217,35 +308,39 @@ body {
 }
 
 /* ============= 탭 헤더 ============= */
+.tab-header-wrap {
+  width: 100%;
+  border-bottom: 1px solid #e3e5ec;
+  padding-bottom: 2px;
+  margin-bottom: 6px;
+}
 .tab-header-row {
-  display: flex;
-  gap: 0;
-  border-bottom: 1.5px solid #ececec;
-  margin-bottom: 18px;
-  background: none;
-  padding: 0;
+  display: inline-flex;
+  gap: 4px;
+  background: #f1f3f7;
+  padding: 4px;
+  border-radius: 6px;
 }
 .tab-header-btn {
   background: none;
   border: none;
-  border-bottom: 2.5px solid transparent;
-  font-size: 1.07rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #aaa;
-  padding: 9px 24px 11px 24px;
+  color: #6b7280;
+  padding: 8px 18px;
   margin: 0;
   cursor: pointer;
-  transition: color 0.17s, border-bottom 0.15s;
+  border-radius: 4px;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   outline: none;
-  border-radius: 0;
 }
 .tab-header-btn.active {
-  color: #1740d4;
-  border-bottom: 2.5px solid #2952eb;
-  background: none;
+  background: #ffffff;
+  color: #3b5bdb;
+  box-shadow: 0 1px 3px rgba(40, 60, 120, 0.12);
 }
 .tab-header-btn:not(.active):hover {
-  color: #222;
+  color: #1f2937;
 }
 
 /* ============= 카드 내 컨텐츠 ============= */
@@ -450,7 +545,9 @@ body {
   text-align: center;
   color: #adadad;
   font-size: 13px;
-  margin-top: 24px;
+  margin-top: auto;
+  padding-top: 32px;
+  padding-bottom: 16px;
   user-select: none;
   letter-spacing: -0.5px;
 }
@@ -713,7 +810,7 @@ body {
   background: #f8faff;
   border-radius: 2px;
   padding: 1px 20px;
-  margin-top: -50px;
+  margin-top: 0;
   margin-bottom: 20px;
   color: #334155;
   font-size: 0.92rem;

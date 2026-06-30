@@ -141,7 +141,7 @@ const BOTTOM_VIDEO_DURATION_MIN = 1.5;
 const BOTTOM_VIDEO_DURATION_MAX = 2.0;
 const BOTTOM_VIDEO_DURATION_TOL = 0.05;
 const getAllowedBottomExts = (brand) =>
-  brand === "webtoon" ? ["jpg"] : ["png", "jpg", "jpeg"];
+  brand === "webtoon" ? ["jpg", "jpeg"] : ["png", "jpg", "jpeg"];
 
 // --- 유틸 ---
 function formatSize(bytes) {
@@ -425,10 +425,23 @@ function renderPreviewCard(logoImg, bgColor, bottomMediaEl) {
   );
 }
 
+// 업로드 아이콘 (드롭존 내부)
+function UploadIcon() {
+  return (
+    <svg className="upload-dropzone-icon" width="30" height="30" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 15V4" />
+      <path d="M7.5 8.5L12 4l4.5 4.5" />
+      <path d="M5 16v2.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V16" />
+    </svg>
+  );
+}
+
 export default function FullSplashMaterialCheck() {
   const [fullTab, setFullTab] = useState("logo");
   const [logoBrand, setLogoBrand] = useState("map"); // 기본: 지도
   const [productType, setProductType] = useState("image"); // 웹툰앱 상품유형: image | video
+  const [dragZone, setDragZone] = useState(null); // 드래그&드롭 하이라이트 대상
 
   // 로고
   const [logoImg, setLogoImg] = useState(null);
@@ -601,6 +614,12 @@ const toggleManualCheck = (id) => {
   const handleLogoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
+      const isPng = file.type === "image/png" || ext === "png";
+      if (!isPng) {
+        alert("로고 이미지는 PNG 형식만 업로드할 수 있습니다.");
+        return;
+      }
       const reader = new FileReader();
       reader.onload = async (ev) => {
         setLogoImg(ev.target.result);
@@ -664,6 +683,11 @@ const toggleManualCheck = (id) => {
     const allowedExts = getAllowedBottomExts(logoBrand);
     const isAllowedFormat = allowedExts.includes(ext);
 
+    if (!isAllowedFormat) {
+      alert(`하단 이미지는 ${allowedExts.map(x => x.toUpperCase()).join(" / ")} 형식만 업로드할 수 있습니다.`);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       setBottomImg(ev.target.result);
@@ -712,6 +736,11 @@ setBottomMainColor(hex);
     const ext = (file.name.split(".").pop() || "").toLowerCase();
     const isMp4 = ext === "mp4" || file.type === "video/mp4";
 
+    if (!isMp4) {
+      alert("하단 동영상은 MP4 형식만 업로드할 수 있습니다.");
+      return;
+    }
+
     // 이전 objectURL 정리 후 새로 생성
     setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
     const url = URL.createObjectURL(file);
@@ -754,6 +783,19 @@ setBottomMainColor(hex);
     probe.onerror = () => finish(null);
   };
 
+  // 드래그&드롭 업로드: 드롭된 파일을 기존 change 핸들러로 합성 이벤트 전달
+  const fileDropProps = (zone, handler) => ({
+    onDragOver: (e) => { e.preventDefault(); },
+    onDragEnter: (e) => { e.preventDefault(); setDragZone(zone); },
+    onDragLeave: (e) => { e.preventDefault(); setDragZone(z => (z === zone ? null : z)); },
+    onDrop: (e) => {
+      e.preventDefault();
+      setDragZone(null);
+      const files = e.dataTransfer.files;
+      if (files && files.length) handler({ target: { files } });
+    },
+  });
+
   const contrastColor = getContrastColor(bgColor);
   const mapWhiteCR = contrastRatio(bgColor, "#ffffff");
   const mapBlackCR = contrastRatio(bgColor, "#000000");
@@ -777,7 +819,11 @@ setBottomMainColor(hex);
                 >지도앱</button>
               </li>
               <li>
-                <div className="tree-branch tree-branch--sub">웹툰앱</div>
+                <button
+                  type="button"
+                  className="tree-branch tree-branch--sub tree-branch--btn"
+                  onClick={() => { setLogoBrand("webtoon"); setProductType("image"); }}
+                >웹툰앱</button>
                 <ul className="tree-children">
                   <li>
                     <button
@@ -804,6 +850,7 @@ setBottomMainColor(hex);
               </li>
             </ul>
           </li>
+          <li className="tree-divider" aria-hidden="true"></li>
           <li>
             <button
               className="tree-leaf tree-leaf--external"
@@ -821,23 +868,30 @@ setBottomMainColor(hex);
         <div className="multi-overlay-card">
 
           {/* 서브 탭 */}
-          <div className="tab-header-row" style={{ marginBottom: 32 }}>
-            {getTabs(logoBrand, productType).map(tab => (
-              <button key={tab.key}
-                className={`tab-header-btn${fullTab === tab.key ? " active" : ""}`}
-                onClick={() => setFullTab(tab.key)}>
-                {tab.label}
-              </button>
-            ))}
+          <div className="tab-header-wrap">
+            <div className="tab-header-row">
+              {getTabs(logoBrand, productType).map(tab => (
+                <button key={tab.key}
+                  className={`tab-header-btn${fullTab === tab.key ? " active" : ""}`}
+                  onClick={() => setFullTab(tab.key)}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 로고 탭 */}
           {fullTab === "logo" && (
             <div>
-              <div className="overlay-upload-area">
-                <label htmlFor="logo-upload" className="overlay-upload-btn">
-                  <span className="upload-arrow" /> 로고 이미지 업로드
-                  <input id="logo-upload" type="file" accept="image/png" onChange={handleLogoChange} />
+              <div
+                className={`overlay-upload-area${dragZone === "logo" ? " drag-over" : ""}`}
+                style={{ width: BOTTOM_WIDTH / 2 }}
+                {...fileDropProps("logo", handleLogoChange)}
+              >
+                <label htmlFor="logo-upload" className="upload-dropzone-label">
+                  <UploadIcon />
+                  <div className="upload-dropzone-title">클릭하거나 여기로 파일을 끌어다 놓으세요 (png)</div>
+                  <input id="logo-upload" type="file" accept="image/png" onChange={handleLogoChange} style={{ display: "none" }} />
                 </label>
               </div>
 
@@ -1397,23 +1451,29 @@ const guideText = isMapContrastItem
 
                   
                 </>
-              ) : (
-                <div className="tab-empty-msg">로고 이미지를 업로드해 주세요.</div>
-              )}
+              ) : null}
             </div>
           )}
 
           {/* --- 하단 탭 --- */}
           {fullTab === "bottom" && (
             <div>
-              <div className="overlay-upload-area">
-                <label htmlFor="bottom-upload" className="overlay-upload-btn">
-                  <span className="upload-arrow" /> 하단 이미지 업로드
+              <div
+                className={`overlay-upload-area${dragZone === "bottom" ? " drag-over" : ""}`}
+                style={{ width: BOTTOM_WIDTH / 2 }}
+                {...fileDropProps("bottom", handleBottomChange)}
+              >
+                <label htmlFor="bottom-upload" className="upload-dropzone-label">
+                  <UploadIcon />
+                  <div className="upload-dropzone-title">
+                    클릭하거나 여기로 파일을 끌어다 놓으세요 ({logoBrand === "webtoon" ? "jpg / jpeg" : "png / jpg / jpeg"})
+                  </div>
                   <input
                     id="bottom-upload"
                     type="file"
-                    accept={logoBrand === "webtoon" ? ".jpg,image/jpeg" : ".png,.jpg,.jpeg,image/png,image/jpeg"}
+                    accept={logoBrand === "webtoon" ? ".jpg,.jpeg,image/jpeg" : ".png,.jpg,.jpeg,image/png,image/jpeg"}
                     onChange={handleBottomChange}
+                    style={{ display: "none" }}
                   />
                 </label>
               </div>
@@ -1500,23 +1560,27 @@ const guideText = isMapContrastItem
 </div>
 
                 </>
-              ) : (
-                <div className="tab-empty-msg">하단 이미지를 업로드해 주세요.</div>
-              )}
+              ) : null}
             </div>
           )}
 
           {/* 하단 동영상 탭 (웹툰앱 동영상형) */}
           {fullTab === "bottomVideo" && (
             <div>
-              <div className="overlay-upload-area">
-                <label htmlFor="bottom-video-upload" className="overlay-upload-btn">
-                  <span className="upload-arrow" /> 하단 동영상 업로드
+              <div
+                className={`overlay-upload-area${dragZone === "bottomVideo" ? " drag-over" : ""}`}
+                style={{ width: BOTTOM_WIDTH / 2 }}
+                {...fileDropProps("bottomVideo", handleBottomVideoChange)}
+              >
+                <label htmlFor="bottom-video-upload" className="upload-dropzone-label">
+                  <UploadIcon />
+                  <div className="upload-dropzone-title">클릭하거나 여기로 파일을 끌어다 놓으세요 (mp4)</div>
                   <input
                     id="bottom-video-upload"
                     type="file"
                     accept=".mp4,video/mp4"
                     onChange={handleBottomVideoChange}
+                    style={{ display: "none" }}
                   />
                 </label>
               </div>
@@ -1646,9 +1710,7 @@ const guideText = isMapContrastItem
                     </div>
                   </div>
                 </>
-              ) : (
-                <div className="tab-empty-msg">하단 동영상을 업로드해 주세요.</div>
-              )}
+              ) : null}
             </div>
           )}
 
