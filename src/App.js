@@ -334,7 +334,7 @@ function getTabs(logoBrand, productType) {
 }
 
 // 하단 가이드 오버레이 프레임 (이미지/동영상 공용). mediaEl = <img> 또는 <video>
-function renderBottomGuideFrame(mediaEl, opacity, setOpacity) {
+function renderBottomGuideFrame(mediaEl, opacity, setOpacity, onReset) {
   return (
     <>
       <div style={{ width: BOTTOM_WIDTH / 2, height: BOTTOM_HEIGHT / 2, background: "#fafcff", border: "1px solid #eaeaea", position: "relative" }}>
@@ -361,11 +361,14 @@ function renderBottomGuideFrame(mediaEl, opacity, setOpacity) {
         </div>
       </div>
 
-      {/* ▼ 투명도 조절바 */}
-      <div style={{ marginTop: 10 }}>
+      {/* ▼ 투명도 조절바 (+ 우측 재등록) */}
+      <div style={{ marginTop: 5, display: "flex", alignItems: "center", width: BOTTOM_WIDTH / 2 }}>
         <b>투명도</b>
         <input type="range" min={0} max={1} step={0.05} value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} style={{ marginLeft: 10, verticalAlign: "middle" }} />
         <span style={{ marginLeft: 8, fontSize: "0.9em", fontWeight: 600 }}>{Math.round(opacity * 100)}%</span>
+        {onReset && (
+          <button className="reset-btn" type="button" onClick={onReset} style={{ marginLeft: "auto" }}>재등록</button>
+        )}
       </div>
     </>
   );
@@ -795,6 +798,28 @@ setBottomMainColor(hex);
       if (files && files.length) handler({ target: { files } });
     },
   });
+
+  // 소재 초기화 (해당 탭의 소재 등록 전 상태로)
+  const resetLogo = () => {
+    setLogoImg(null);
+    setLogoInfo({});
+    setLogoGuideIdx(0);
+    setLogoErrorPercents([]);
+    setLogoPaddingCheck(null);
+    setGuideOverlaySrc(null);
+    setManualChecks({});
+  };
+  const resetBottom = () => {
+    setBottomImg(null);
+    setBottomInfo({});
+    setBottomMainColor(null);
+    setManualBottomChecks({});
+  };
+  const resetBottomVideo = () => {
+    setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setBottomVideoInfo({});
+    setManualVideoChecks({});
+  };
 
   const contrastColor = getContrastColor(bgColor);
   const mapWhiteCR = contrastRatio(bgColor, "#ffffff");
@@ -1281,6 +1306,12 @@ setBottomMainColor(hex);
                 </div>
               )}
 
+              {logoImg && (
+                <div className="reset-row" style={{ width: LOGO_WIDTH / 2 }}>
+                  <button className="reset-btn" type="button" onClick={resetLogo}>재등록</button>
+                </div>
+              )}
+
               {/* 기본가이드 체크 (이미지 없어도 항상 표시) */}
               <div style={{ marginTop: 40 }}>
                     <b>기본가이드 체크</b>
@@ -1465,7 +1496,8 @@ const guideText = isMapContrastItem
               {bottomImg ? renderBottomGuideFrame(
                 <img src={bottomImg} alt="하단" style={{ width: "100%", height: "100%", objectFit: "contain" }} />,
                 bottomOverlayOpacity,
-                setBottomOverlayOpacity
+                setBottomOverlayOpacity,
+                resetBottom
               ) : (
                 <div
                   className={`overlay-upload-area${dragZone === "bottom" ? " drag-over" : ""}`}
@@ -1580,7 +1612,8 @@ const guideText = isMapContrastItem
                   style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />,
                 bottomVideoOverlayOpacity,
-                setBottomVideoOverlayOpacity
+                setBottomVideoOverlayOpacity,
+                resetBottomVideo
               ) : (
                 <div
                   className={`overlay-upload-area${dragZone === "bottomVideo" ? " drag-over" : ""}`}

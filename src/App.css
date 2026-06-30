@@ -257,8 +257,8 @@ body {
 
 .upload-dropzone-icon {
   color: #aeb4bf;
-  width: 20px;
-  height: 20px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
 }
 
@@ -268,10 +268,10 @@ body {
 
 .upload-dropzone-label {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 9px;
+  gap: 12px;
   text-align: center;
   width: 100%;
   box-sizing: border-box;
@@ -282,8 +282,8 @@ body {
 
 .upload-dropzone-title {
   font-size: 0.95rem;
-  font-weight: 400;
-  color: #7b818d;
+  font-weight: 500;
+  color: #3a3f4a;
   line-height: 1.2;
 }
 
@@ -421,6 +421,28 @@ body {
   align-items: center;
   justify-content: center;
 }
+/* 소재 초기화 버튼 (미리보기 박스 우하단 밖) */
+.reset-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.reset-btn {
+  border: 1px solid #6b7280;
+  background: #6b7280;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 2px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.reset-btn:hover {
+  background: #565d69;
+  border-color: #565d69;
+}
+
 .check-green { color: #3ca555; font-weight: 700; }
 .check-red { color: #d73a35; font-weight: 700; }
 .check-none { color: #c0c4cc; font-weight: 700; }
