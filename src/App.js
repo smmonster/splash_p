@@ -883,18 +883,6 @@ setBottomMainColor(hex);
           {/* 로고 탭 */}
           {fullTab === "logo" && (
             <div>
-              <div
-                className={`overlay-upload-area${dragZone === "logo" ? " drag-over" : ""}`}
-                style={{ width: BOTTOM_WIDTH / 2 }}
-                {...fileDropProps("logo", handleLogoChange)}
-              >
-                <label htmlFor="logo-upload" className="upload-dropzone-label">
-                  <UploadIcon />
-                  <div className="upload-dropzone-title">클릭하거나 여기로 파일을 끌어다 놓으세요 (png)</div>
-                  <input id="logo-upload" type="file" accept="image/png" onChange={handleLogoChange} style={{ display: "none" }} />
-                </label>
-              </div>
-
               {logoImg ? (
                 <>
                   {/* 배경색 */}
@@ -1278,32 +1266,49 @@ setBottomMainColor(hex);
                     </div>
                   </div>
 
-                  {/* 기본가이드 체크 */}
-                  <div style={{ marginTop: 40 }}>
+                </>
+              ) : (
+                <div
+                  className={`overlay-upload-area${dragZone === "logo" ? " drag-over" : ""}`}
+                  style={{ width: LOGO_WIDTH / 2, height: LOGO_HEIGHT / 2 }}
+                  {...fileDropProps("logo", handleLogoChange)}
+                >
+                  <label htmlFor="logo-upload" className="upload-dropzone-label">
+                    <UploadIcon />
+                    <div className="upload-dropzone-title">클릭하거나 여기로 파일을 끌어다 놓으세요 (png)</div>
+                    <input id="logo-upload" type="file" accept="image/png" onChange={handleLogoChange} style={{ display: "none" }} />
+                  </label>
+                </div>
+              )}
+
+              {/* 기본가이드 체크 (이미지 없어도 항상 표시) */}
+              <div style={{ marginTop: 40 }}>
                     <b>기본가이드 체크</b>
                     <div className="ad-info-box-check">
                       <div className="info-check-row">
                         <span className="info-check-icon">
-                          {logoInfo.w === LOGO_WIDTH && logoInfo.h === LOGO_HEIGHT
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
+                          {!logoImg ? <span className="check-none">-</span>
+                            : (logoInfo.w === LOGO_WIDTH && logoInfo.h === LOGO_HEIGHT
+                              ? <span className="check-green">✔</span>
+                              : <span className="check-red">✖</span>)}
                         </span>
                         <span className="info-check-label">사이즈</span>
                         <span className="info-check-value">
-                          {logoInfo.w}x{logoInfo.h}
+                          {logoImg ? `${logoInfo.w}x${logoInfo.h}` : "-"}
                           <span className="guide-text"> (가로 945px, 세로 720px)</span>
                         </span>
                       </div>
 
                       <div className="info-check-row">
                         <span className="info-check-icon">
-                          {logoInfo.size <= (logoBrand === "webtoon" ? LOGO_MAX_SIZE_WEBTOON : LOGO_MAX_SIZE_DEFAULT)
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
+                          {!logoImg ? <span className="check-none">-</span>
+                            : (logoInfo.size <= (logoBrand === "webtoon" ? LOGO_MAX_SIZE_WEBTOON : LOGO_MAX_SIZE_DEFAULT)
+                              ? <span className="check-green">✔</span>
+                              : <span className="check-red">✖</span>)}
                         </span>
                         <span className="info-check-label">용량</span>
                         <span className="info-check-value">
-                          {formatSize(logoInfo.size)}
+                          {logoImg ? formatSize(logoInfo.size) : "-"}
                           <span className="guide-text"> 
                             {logoBrand === "webtoon" ? " (40KB 이하)" : " (400KB 이하)"}
                           </span>
@@ -1312,38 +1317,41 @@ setBottomMainColor(hex);
 
                       <div className="info-check-row">
                         <span className="info-check-icon">
-                          {logoInfo.isPng
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
+                          {!logoImg ? <span className="check-none">-</span>
+                            : (logoInfo.isPng
+                              ? <span className="check-green">✔</span>
+                              : <span className="check-red">✖</span>)}
                         </span>
                         <span className="info-check-label">포맷</span>
                         <span className="info-check-value">
-                          image/png (PNG) <span className="guide-text">(PNG 만 허용)</span>
+                          {logoImg ? "image/png (PNG)" : "-"} <span className="guide-text">(PNG 만 허용)</span>
                         </span>
                       </div>
 
                       <div className="info-check-row">
                         <span className="info-check-icon">
-                          {logoInfo.isTransparent
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
+                          {!logoImg ? <span className="check-none">-</span>
+                            : (logoInfo.isTransparent
+                              ? <span className="check-green">✔</span>
+                              : <span className="check-red">✖</span>)}
                         </span>
                         <span className="info-check-label">투명</span>
                         <span className="info-check-value">
-                          {logoInfo.isTransparent ? "투명 있음" : "투명 없음"}
+                          {logoImg ? (logoInfo.isTransparent ? "투명 있음" : "투명 없음") : "-"}
                           <span className="guide-text">(반드시 투명)</span>
                         </span>
                       </div>
 
                       <div className="info-check-row">
                         <span className="info-check-icon">
-                          {bgCheck.pass
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
+                          {!logoImg ? <span className="check-none">-</span>
+                            : (bgCheck.pass
+                              ? <span className="check-green">✔</span>
+                              : <span className="check-red">✖</span>)}
                         </span>
                         <span className="info-check-label">채도+명도</span>
                         <span className="info-check-value">
-                          S: {bgCheck.s}, B: {bgCheck.b} (합: {bgCheck.s + bgCheck.b})
+                          {logoImg ? `S: ${bgCheck.s}, B: ${bgCheck.b} (합: ${bgCheck.s + bgCheck.b})` : "-"}
                           <span className="guide-text">(합 160 이하)</span>
                         </span>
                       </div>
@@ -1448,269 +1456,266 @@ const guideText = isMapContrastItem
 })}
 
 </div>
-
-                  
-                </>
-              ) : null}
             </div>
           )}
 
           {/* --- 하단 탭 --- */}
           {fullTab === "bottom" && (
             <div>
-              <div
-                className={`overlay-upload-area${dragZone === "bottom" ? " drag-over" : ""}`}
-                style={{ width: BOTTOM_WIDTH / 2 }}
-                {...fileDropProps("bottom", handleBottomChange)}
-              >
-                <label htmlFor="bottom-upload" className="upload-dropzone-label">
-                  <UploadIcon />
-                  <div className="upload-dropzone-title">
-                    클릭하거나 여기로 파일을 끌어다 놓으세요 ({logoBrand === "webtoon" ? "jpg / jpeg" : "png / jpg / jpeg"})
-                  </div>
-                  <input
-                    id="bottom-upload"
-                    type="file"
-                    accept={logoBrand === "webtoon" ? ".jpg,.jpeg,image/jpeg" : ".png,.jpg,.jpeg,image/png,image/jpeg"}
-                    onChange={handleBottomChange}
-                    style={{ display: "none" }}
-                  />
-                </label>
-              </div>
-              {bottomImg ? (
-                <>
-                  {renderBottomGuideFrame(
-                    <img src={bottomImg} alt="하단" style={{ width: "100%", height: "100%", objectFit: "contain" }} />,
-                    bottomOverlayOpacity,
-                    setBottomOverlayOpacity
-                  )}
-
-                  {/* 기본가이드 체크 */}
-                  <div style={{ marginTop: 40 }}>
-                    <b>기본가이드 체크</b>
-                    <div className="ad-info-box-check">
-                      <div className="info-check-row">
-                        <span className="info-check-icon">
-                          {bottomInfo.w === BOTTOM_WIDTH && bottomInfo.h === BOTTOM_HEIGHT
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
-                        </span>
-                        <span className="info-check-label">사이즈</span>
-                        <span className="info-check-value">
-                          {bottomInfo.w}x{bottomInfo.h}
-                          <span className="guide-text"> (가로 1400px, 세로 614px)</span>
-                        </span>
-                      </div>
-
-                      <div className="info-check-row">
-                        <span className="info-check-icon">
-                          {bottomInfo.size <= (logoBrand === "webtoon" ? BOTTOM_MAX_SIZE_WEBTOON : BOTTOM_MAX_SIZE_DEFAULT)
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
-                        </span>
-                        <span className="info-check-label">용량</span>
-                        <span className="info-check-value">
-                          {formatSize(bottomInfo.size)}
-                          <span className="guide-text">
-                            {logoBrand === "webtoon" ? " (300KB 이하)" : " (400KB 이하)"}
-                          </span>
-                        </span>
-                      </div>
-
-                      <div className="info-check-row">
-                        <span className="info-check-icon">
-                          {bottomInfo.isAllowedFormat
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
-                        </span>
-                        <span className="info-check-label">포맷</span>
-                        <span className="info-check-value">
-                          {bottomInfo.ext ? bottomInfo.ext.toUpperCase() : "-"}
-                          <span className="guide-text">
-                            {logoBrand === "webtoon" ? " (허용: JPG)" : " (허용: PNG / JPG / JPEG)"}
-                          </span>
-                        </span>
-                      </div>
+              {bottomImg ? renderBottomGuideFrame(
+                <img src={bottomImg} alt="하단" style={{ width: "100%", height: "100%", objectFit: "contain" }} />,
+                bottomOverlayOpacity,
+                setBottomOverlayOpacity
+              ) : (
+                <div
+                  className={`overlay-upload-area${dragZone === "bottom" ? " drag-over" : ""}`}
+                  style={{ width: BOTTOM_WIDTH / 2, height: BOTTOM_HEIGHT / 2 }}
+                  {...fileDropProps("bottom", handleBottomChange)}
+                >
+                  <label htmlFor="bottom-upload" className="upload-dropzone-label">
+                    <UploadIcon />
+                    <div className="upload-dropzone-title">
+                      클릭하거나 여기로 파일을 끌어다 놓으세요 ({logoBrand === "webtoon" ? "jpg / jpeg" : "png / jpg / jpeg"})
                     </div>
+                    <input
+                      id="bottom-upload"
+                      type="file"
+                      accept={logoBrand === "webtoon" ? ".jpg,.jpeg,image/jpeg" : ".png,.jpg,.jpeg,image/png,image/jpeg"}
+                      onChange={handleBottomChange}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* 기본가이드 체크 (이미지 없어도 항상 표시) */}
+              <div style={{ marginTop: 40 }}>
+                <b>기본가이드 체크</b>
+                <div className="ad-info-box-check">
+                  <div className="info-check-row">
+                    <span className="info-check-icon">
+                      {!bottomImg ? <span className="check-none">-</span>
+                        : (bottomInfo.w === BOTTOM_WIDTH && bottomInfo.h === BOTTOM_HEIGHT
+                          ? <span className="check-green">✔</span>
+                          : <span className="check-red">✖</span>)}
+                    </span>
+                    <span className="info-check-label">사이즈</span>
+                    <span className="info-check-value">
+                      {bottomImg ? `${bottomInfo.w}x${bottomInfo.h}` : "-"}
+                      <span className="guide-text"> (가로 1400px, 세로 614px)</span>
+                    </span>
                   </div>
 
-                  {/* 하단 기본가이드 체크 아래 */}
-<div style={{ marginTop: 30 }}>
-  <div className="manual-checklist-title">수동 체크리스트</div>
-  <div className="ad-info-box-check ad-info-box-check--manual">
-    {manualBottomCheckItems.map(item => (
-      <div key={item.id} className="info-check-row manual-check-row">
-        <label className="manual-check-label">
-          <input
-            type="checkbox"
-            checked={!!manualBottomChecks[item.id]}
-            onChange={() =>
-              setManualBottomChecks(prev => ({
-                ...prev,
-                [item.id]: !prev[item.id]
-              }))
-            }
-          />
-          <span className="manual-check-text">{item.label}</span>
-        </label>
-        <span className="manual-check-guide">{item.guide}</span>
-      </div>
-    ))}
-  </div>
-</div>
+                  <div className="info-check-row">
+                    <span className="info-check-icon">
+                      {!bottomImg ? <span className="check-none">-</span>
+                        : (bottomInfo.size <= (logoBrand === "webtoon" ? BOTTOM_MAX_SIZE_WEBTOON : BOTTOM_MAX_SIZE_DEFAULT)
+                          ? <span className="check-green">✔</span>
+                          : <span className="check-red">✖</span>)}
+                    </span>
+                    <span className="info-check-label">용량</span>
+                    <span className="info-check-value">
+                      {bottomImg ? formatSize(bottomInfo.size) : "-"}
+                      <span className="guide-text">
+                        {logoBrand === "webtoon" ? " (300KB 이하)" : " (400KB 이하)"}
+                      </span>
+                    </span>
+                  </div>
 
-                </>
-              ) : null}
+                  <div className="info-check-row">
+                    <span className="info-check-icon">
+                      {!bottomImg ? <span className="check-none">-</span>
+                        : (bottomInfo.isAllowedFormat
+                          ? <span className="check-green">✔</span>
+                          : <span className="check-red">✖</span>)}
+                    </span>
+                    <span className="info-check-label">포맷</span>
+                    <span className="info-check-value">
+                      {bottomImg && bottomInfo.ext ? bottomInfo.ext.toUpperCase() : "-"}
+                      <span className="guide-text">
+                        {logoBrand === "webtoon" ? " (허용: JPG)" : " (허용: PNG / JPG / JPEG)"}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 수동 체크리스트 (이미지 없어도 항상 표시) */}
+              <div style={{ marginTop: 30 }}>
+                <div className="manual-checklist-title">수동 체크리스트</div>
+                <div className="ad-info-box-check ad-info-box-check--manual">
+                  {manualBottomCheckItems.map(item => (
+                    <div key={item.id} className="info-check-row manual-check-row">
+                      <label className="manual-check-label">
+                        <input
+                          type="checkbox"
+                          checked={!!manualBottomChecks[item.id]}
+                          onChange={() =>
+                            setManualBottomChecks(prev => ({
+                              ...prev,
+                              [item.id]: !prev[item.id]
+                            }))
+                          }
+                        />
+                        <span className="manual-check-text">{item.label}</span>
+                      </label>
+                      <span className="manual-check-guide">{item.guide}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
           {/* 하단 동영상 탭 (웹툰앱 동영상형) */}
           {fullTab === "bottomVideo" && (
             <div>
-              <div
-                className={`overlay-upload-area${dragZone === "bottomVideo" ? " drag-over" : ""}`}
-                style={{ width: BOTTOM_WIDTH / 2 }}
-                {...fileDropProps("bottomVideo", handleBottomVideoChange)}
-              >
-                <label htmlFor="bottom-video-upload" className="upload-dropzone-label">
-                  <UploadIcon />
-                  <div className="upload-dropzone-title">클릭하거나 여기로 파일을 끌어다 놓으세요 (mp4)</div>
-                  <input
-                    id="bottom-video-upload"
-                    type="file"
-                    accept=".mp4,video/mp4"
-                    onChange={handleBottomVideoChange}
-                    style={{ display: "none" }}
-                  />
-                </label>
-              </div>
-              {bottomVideoSrc ? (
-                <>
-                  {renderBottomGuideFrame(
-                    <video
-                      src={bottomVideoSrc}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                    />,
-                    bottomVideoOverlayOpacity,
-                    setBottomVideoOverlayOpacity
-                  )}
+              {bottomVideoSrc ? renderBottomGuideFrame(
+                <video
+                  src={bottomVideoSrc}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                />,
+                bottomVideoOverlayOpacity,
+                setBottomVideoOverlayOpacity
+              ) : (
+                <div
+                  className={`overlay-upload-area${dragZone === "bottomVideo" ? " drag-over" : ""}`}
+                  style={{ width: BOTTOM_WIDTH / 2, height: BOTTOM_HEIGHT / 2 }}
+                  {...fileDropProps("bottomVideo", handleBottomVideoChange)}
+                >
+                  <label htmlFor="bottom-video-upload" className="upload-dropzone-label">
+                    <UploadIcon />
+                    <div className="upload-dropzone-title">클릭하거나 여기로 파일을 끌어다 놓으세요 (mp4)</div>
+                    <input
+                      id="bottom-video-upload"
+                      type="file"
+                      accept=".mp4,video/mp4"
+                      onChange={handleBottomVideoChange}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                </div>
+              )}
 
-                  {/* 기본가이드 체크 (동영상) */}
-                  <div style={{ marginTop: 40 }}>
-                    <b>기본가이드 체크</b>
-                    <div className="ad-info-box-check">
-                      {/* 사이즈 */}
-                      <div className="info-check-row">
-                        <span className="info-check-icon">
-                          {bottomVideoInfo.w === BOTTOM_WIDTH && bottomVideoInfo.h === BOTTOM_HEIGHT
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
-                        </span>
-                        <span className="info-check-label">사이즈</span>
-                        <span className="info-check-value">
-                          {bottomVideoInfo.w}x{bottomVideoInfo.h}
-                          <span className="guide-text"> (가로 1400px, 세로 614px)</span>
-                        </span>
-                      </div>
+              {/* 기본가이드 체크 (동영상, 미등록 시에도 표시) */}
+              <div style={{ marginTop: 40 }}>
+                <b>기본가이드 체크</b>
+                <div className="ad-info-box-check">
+                  {/* 사이즈 */}
+                  <div className="info-check-row">
+                    <span className="info-check-icon">
+                      {!bottomVideoSrc ? <span className="check-none">-</span>
+                        : (bottomVideoInfo.w === BOTTOM_WIDTH && bottomVideoInfo.h === BOTTOM_HEIGHT
+                          ? <span className="check-green">✔</span>
+                          : <span className="check-red">✖</span>)}
+                    </span>
+                    <span className="info-check-label">사이즈</span>
+                    <span className="info-check-value">
+                      {bottomVideoSrc ? `${bottomVideoInfo.w}x${bottomVideoInfo.h}` : "-"}
+                      <span className="guide-text"> (가로 1400px, 세로 614px)</span>
+                    </span>
+                  </div>
 
-                      {/* 포맷 */}
-                      <div className="info-check-row">
-                        <span className="info-check-icon">
-                          {bottomVideoInfo.isMp4
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
-                        </span>
-                        <span className="info-check-label">포맷</span>
-                        <span className="info-check-value">
-                          {bottomVideoInfo.ext ? bottomVideoInfo.ext.toUpperCase() : "-"}
-                          <span className="guide-text"> (허용: MP4)</span>
-                        </span>
-                      </div>
+                  {/* 포맷 */}
+                  <div className="info-check-row">
+                    <span className="info-check-icon">
+                      {!bottomVideoSrc ? <span className="check-none">-</span>
+                        : (bottomVideoInfo.isMp4
+                          ? <span className="check-green">✔</span>
+                          : <span className="check-red">✖</span>)}
+                    </span>
+                    <span className="info-check-label">포맷</span>
+                    <span className="info-check-value">
+                      {bottomVideoSrc && bottomVideoInfo.ext ? bottomVideoInfo.ext.toUpperCase() : "-"}
+                      <span className="guide-text"> (허용: MP4)</span>
+                    </span>
+                  </div>
 
-                      {/* 영상 길이 */}
-                      <div className="info-check-row">
-                        <span className="info-check-icon">
-                          {typeof bottomVideoInfo.durationSec === "number" &&
+                  {/* 영상 길이 */}
+                  <div className="info-check-row">
+                    <span className="info-check-icon">
+                      {!bottomVideoSrc ? <span className="check-none">-</span>
+                        : (typeof bottomVideoInfo.durationSec === "number" &&
                           bottomVideoInfo.durationSec >= BOTTOM_VIDEO_DURATION_MIN - BOTTOM_VIDEO_DURATION_TOL &&
                           bottomVideoInfo.durationSec <= BOTTOM_VIDEO_DURATION_MAX + BOTTOM_VIDEO_DURATION_TOL
-                            ? <span className="check-green">✔</span>
-                            : <span className="check-red">✖</span>}
-                        </span>
-                        <span className="info-check-label">영상 길이</span>
-                        <span className="info-check-value">
-                          {typeof bottomVideoInfo.durationSec === "number"
-                            ? bottomVideoInfo.durationSec.toFixed(2) + "초"
-                            : "-"}
-                          <span className="guide-text"> (1.5초 ~ 2.0초)</span>
-                        </span>
-                      </div>
-
-                      {/* 용량 (표시만) */}
-                      <div className="info-check-row">
-                        <span className="info-check-icon">
-                          <span className="guide-text">·</span>
-                        </span>
-                        <span className="info-check-label">용량</span>
-                        <span className="info-check-value">
-                          {formatSize(bottomVideoInfo.size)}
-                          <span className="guide-text"> (제한 없음)</span>
-                        </span>
-                      </div>
-
-                      {/* 사운드 제외 여부 */}
-                      <div className="info-check-row">
-                        <span className="info-check-icon">
-                          {bottomVideoInfo.hasAudio === false
-                            ? <span className="check-green">✔</span>
-                            : bottomVideoInfo.hasAudio === true
-                              ? <span className="check-red">✖</span>
-                              : <span style={{ color: "#b8860b", fontWeight: "bold" }}>❔</span>}
-                        </span>
-                        <span className="info-check-label">사운드 제외</span>
-                        <span className="info-check-value">
-                          {bottomVideoInfo.hasAudio === false
-                            ? "오디오 트랙 없음"
-                            : bottomVideoInfo.hasAudio === true
-                              ? "오디오 트랙 포함"
-                              : "자동 확인 불가"}
-                          <span className="guide-text">
-                            {bottomVideoInfo.hasAudio === null ? " (수동 확인 필요)" : " (오디오 트랙 제외 권장)"}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
+                          ? <span className="check-green">✔</span>
+                          : <span className="check-red">✖</span>)}
+                    </span>
+                    <span className="info-check-label">영상 길이</span>
+                    <span className="info-check-value">
+                      {bottomVideoSrc && typeof bottomVideoInfo.durationSec === "number"
+                        ? bottomVideoInfo.durationSec.toFixed(2) + "초"
+                        : "-"}
+                      <span className="guide-text"> (1.5초 ~ 2.0초)</span>
+                    </span>
                   </div>
 
-                  {/* 수동 체크리스트 (동영상) */}
-                  <div style={{ marginTop: 30 }}>
-                    <div className="manual-checklist-title">수동 체크리스트</div>
-                    <div className="ad-info-box-check ad-info-box-check--manual">
-                      {MANUAL_CHECK_BOTTOM_VIDEO.map(item => (
-                        <div key={item.id} className="info-check-row manual-check-row">
-                          <label className="manual-check-label">
-                            <input
-                              type="checkbox"
-                              checked={!!manualVideoChecks[item.id]}
-                              onChange={() =>
-                                setManualVideoChecks(prev => ({
-                                  ...prev,
-                                  [item.id]: !prev[item.id]
-                                }))
-                              }
-                            />
-                            <span className="manual-check-text">{item.label}</span>
-                          </label>
-                          <span className="manual-check-guide">{item.guide}</span>
-                        </div>
-                      ))}
-                    </div>
+                  {/* 용량 (표시만) */}
+                  <div className="info-check-row">
+                    <span className="info-check-icon">
+                      <span className="guide-text">·</span>
+                    </span>
+                    <span className="info-check-label">용량</span>
+                    <span className="info-check-value">
+                      {bottomVideoSrc ? formatSize(bottomVideoInfo.size) : "-"}
+                      <span className="guide-text"> (제한 없음)</span>
+                    </span>
                   </div>
-                </>
-              ) : null}
+
+                  {/* 사운드 제외 여부 */}
+                  <div className="info-check-row">
+                    <span className="info-check-icon">
+                      {!bottomVideoSrc ? <span className="check-none">-</span>
+                        : (bottomVideoInfo.hasAudio === false
+                          ? <span className="check-green">✔</span>
+                          : bottomVideoInfo.hasAudio === true
+                            ? <span className="check-red">✖</span>
+                            : <span style={{ color: "#b8860b", fontWeight: "bold" }}>❔</span>)}
+                    </span>
+                    <span className="info-check-label">사운드 제외</span>
+                    <span className="info-check-value">
+                      {!bottomVideoSrc ? "-"
+                        : bottomVideoInfo.hasAudio === false
+                          ? "오디오 트랙 없음"
+                          : bottomVideoInfo.hasAudio === true
+                            ? "오디오 트랙 포함"
+                            : "자동 확인 불가"}
+                      <span className="guide-text">
+                        {bottomVideoSrc && bottomVideoInfo.hasAudio === null ? " (수동 확인 필요)" : " (오디오 트랙 제외 권장)"}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 수동 체크리스트 (동영상, 항상 표시) */}
+              <div style={{ marginTop: 30 }}>
+                <div className="manual-checklist-title">수동 체크리스트</div>
+                <div className="ad-info-box-check ad-info-box-check--manual">
+                  {MANUAL_CHECK_BOTTOM_VIDEO.map(item => (
+                    <div key={item.id} className="info-check-row manual-check-row">
+                      <label className="manual-check-label">
+                        <input
+                          type="checkbox"
+                          checked={!!manualVideoChecks[item.id]}
+                          onChange={() =>
+                            setManualVideoChecks(prev => ({
+                              ...prev,
+                              [item.id]: !prev[item.id]
+                            }))
+                          }
+                        />
+                        <span className="manual-check-text">{item.label}</span>
+                      </label>
+                      <span className="manual-check-guide">{item.guide}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1878,7 +1883,7 @@ const guideText = isMapContrastItem
         lineHeight: 1.5,
         width: 220,
         minHeight: 40,
-        marginTop: 413
+        marginTop: productType === "video" ? 440 : 413
       }}
     >
 

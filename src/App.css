@@ -226,6 +226,7 @@ body {
   width: 100%;
   box-sizing: border-box;
   margin-bottom: 28px;
+  display: flex;
   border: 1.5px dashed #c5cad3;
   border-radius: 4px;
   background: repeating-linear-gradient(
@@ -422,6 +423,7 @@ body {
 }
 .check-green { color: #3ca555; font-weight: 700; }
 .check-red { color: #d73a35; font-weight: 700; }
+.check-none { color: #c0c4cc; font-weight: 700; }
 .info-check-label {
   font-weight: 600;
   min-width: 90px;
