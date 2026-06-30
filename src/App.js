@@ -108,18 +108,17 @@ const MANUAL_CHECK_BOTTOM_COMMON = [
 ];
 
 const MANUAL_CHECK_BOTTOM_MAP = [
-
+  // TODO: map 브랜드 하단 수동검수 항목 (현재 없음)
 ];
 
 const MANUAL_CHECK_BOTTOM_WEBTOON = [
-
+  // TODO: webtoon 브랜드 하단 수동검수 항목 (현재 없음)
 ];
 
 
 const LOGO_WIDTH = 945, LOGO_HEIGHT = 720;
 const BOTTOM_WIDTH = 1400, BOTTOM_HEIGHT = 614;
 const BOTTOM_MAIN_AREA_W = 478;
-const BOTTOM_TEXT_AVOID_H = 60; // (지금은 사용 X, 유지만)
 const PREVIEW_MOBILE_W = 375, PREVIEW_MOBILE_H = 812;
 const getAllowedBottomExts = (brand) =>
   brand === "webtoon" ? ["jpg"] : ["png", "jpg", "jpeg"];
@@ -184,14 +183,6 @@ async function getRecoloredGuideDataUrl(src, targetHex) {
 }
 
 async function getOverlapErrorPercent(src1, src2, width, height) {
-  function loadImg(src) {
-    return new Promise(res => {
-      const img = new window.Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => res(img);
-      img.src = src;
-    });
-  }
   const [img1, img2] = await Promise.all([loadImg(src1), loadImg(src2)]);
   const canvas = document.createElement("canvas");
   canvas.width = width; canvas.height = height;
@@ -325,9 +316,6 @@ export default function FullSplashMaterialCheck() {
   const [manualChecks, setManualChecks] = useState({});
   const [manualBottomChecks, setManualBottomChecks] = useState({});
 
-  // 기존 invertGuide 제거
-// const [invertGuide, setInvertGuide] = useState(false);
-
 // ✅ 가이드 컬러 모드
 const [guideColorMode, setGuideColorMode] = useState("white"); // map/nps 기본 white
 const [guideOverlaySrc, setGuideOverlaySrc] = useState(null);  // 재색상된 가이드 src
@@ -344,28 +332,15 @@ const manualBottomCheckItems = [
   ...MANUAL_CHECK_BOTTOM_COMMON
 ];
 
+// logoBrand 변경 시 수동검수 체크박스 초기화 (상단/하단)
 useEffect(() => {
-  const initialState = {};
-  manualBottomCheckItems.forEach(item => {
-    initialState[item.id] = false;
-  });
-  setManualBottomChecks(initialState);
-}, [logoBrand]);
+  const bottomState = {};
+  manualBottomCheckItems.forEach(item => { bottomState[item.id] = false; });
+  setManualBottomChecks(bottomState);
 
-  
- useEffect(() => {
-    const initialState = {};
-    manualCheckItems.forEach(item => {
-      initialState[item.id] = false;
-    });
-    setManualChecks(initialState);
-  }, [logoBrand]); // 의존성은 logoBrand 하나면 충분
-
-useEffect(() => {
-  // 지도/네플스: white 디폴트
-  // 웹툰: green 디폴트
-  if (logoBrand === "webtoon") setGuideColorMode("green");
-  else setGuideColorMode("white");
+  const topState = {};
+  manualCheckItems.forEach(item => { topState[item.id] = false; });
+  setManualChecks(topState);
 }, [logoBrand]);
 
 useEffect(() => {
