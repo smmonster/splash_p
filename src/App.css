@@ -95,10 +95,21 @@ body {
 }
 
 .tree-children {
-  position: relative;
-  padding-left: 16px;
-  margin-left: 10px;
-  border-left: 1px solid #e7e9ef;
+  padding-left: 12px;
+}
+
+/* 브랜드 항목 사이 구분선 */
+.tree > li > .tree-children > li {
+  border-bottom: 1px solid #e6e8ef;
+}
+.tree > li > .tree-children > li:last-child {
+  border-bottom: none;
+}
+
+/* 메뉴 아이콘 */
+.tree-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
 }
 
 .tree-divider {
@@ -109,6 +120,9 @@ body {
 
 /* 섹션 라벨 (전면형) — 일반형과 동일 크기 */
 .tree-branch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: normal;
@@ -126,7 +140,9 @@ body {
 }
 
 .tree-branch--btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
   border: none;
@@ -142,7 +158,9 @@ body {
 }
 
 .tree-leaf {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
   border: none;
@@ -154,6 +172,12 @@ body {
   color: #4b5563;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tree-external-arrow {
+  color: #2952eb;
+  font-weight: 700;
+  margin-left: auto;
 }
 
 .tree-leaf:hover {
@@ -328,37 +352,50 @@ body {
 /* ============= 탭 헤더 ============= */
 .tab-header-wrap {
   width: 100%;
-  margin-bottom: 18px;
+  border-bottom: 1px solid #edeef2;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
 }
 .tab-header-row {
-  display: flex;
+  display: inline-flex;
   gap: 0;
-  border-bottom: 1.5px solid #ececec;
   background: none;
   padding: 0;
 }
 .tab-header-btn {
+  position: relative;
   background: none;
   border: none;
-  border-bottom: 2.5px solid transparent;
-  font-size: 1.07rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #aaa;
-  padding: 9px 24px 11px 24px;
+  color: #b0b6c1;
+  padding: 5px 18px;
   margin: 0;
   cursor: pointer;
   border-radius: 0;
-  transition: color 0.17s, border-bottom 0.15s;
+  transition: color 0.15s ease;
   outline: none;
+}
+.tab-header-btn + .tab-header-btn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 13px;
+  background: #dcdfe6;
+}
+.tab-header-btn:not(.active):hover {
+  color: #6b7280;
 }
 .tab-header-btn.active {
   background: none;
-  color: #111111;
-  border-bottom: 2.5px solid #111111;
-  box-shadow: none;
-}
-.tab-header-btn:not(.active):hover {
-  color: #222;
+  color: #111318;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  text-decoration-thickness: 2px;
 }
 
 /* ============= 카드 내 컨텐츠 ============= */

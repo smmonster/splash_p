@@ -440,6 +440,33 @@ function UploadIcon() {
   );
 }
 
+// 좌측 트리 메뉴 아이콘
+function TreeIcon({ type }) {
+  const p = {
+    width: 16, height: 16, viewBox: "0 0 24 24", fill: "none",
+    stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round",
+    strokeLinejoin: "round", className: "tree-icon", "aria-hidden": true,
+  };
+  switch (type) {
+    case "map":
+      return (<svg {...p}><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10Z" /><circle cx="12" cy="11" r="2" /></svg>);
+    case "webtoon":
+      return (<svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15l4-4 4 4 3-3 4 4" /></svg>);
+    case "image":
+      return (<svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9" r="1.5" /><path d="M4 18l5-5 4 3 3-2 4 4" /></svg>);
+    case "video":
+      return (<svg {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M10 9.5l5 2.5-5 2.5z" /></svg>);
+    case "store":
+      return (<svg {...p}><path d="M4 7h16l-1 13H5L4 7Z" /><path d="M9 7a3 3 0 0 1 6 0" /></svg>);
+    case "screen":
+      return (<svg {...p}><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>);
+    case "full":
+      return (<svg {...p}><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" /></svg>);
+    default:
+      return null;
+  }
+}
+
 export default function FullSplashMaterialCheck() {
   const [fullTab, setFullTab] = useState("logo");
   const [logoBrand, setLogoBrand] = useState("map"); // 기본: 지도
@@ -834,35 +861,35 @@ setBottomMainColor(hex);
         <div className="side-tree-title">스플래시 검수</div>
         <ul className="tree">
           <li>
-            <div className="tree-branch">전면형</div>
+            <div className="tree-branch"><TreeIcon type="full" /><span>전면형</span></div>
             <ul className="tree-children">
               <li>
                 <button
                   className={`tree-leaf${logoBrand === "map" ? " active" : ""}`}
                   onClick={() => { setLogoBrand("map"); setProductType("image"); }}
                   type="button"
-                >지도앱</button>
+                ><TreeIcon type="map" /><span>지도앱</span></button>
               </li>
               <li>
                 <button
                   type="button"
                   className="tree-branch tree-branch--sub tree-branch--btn"
                   onClick={() => { setLogoBrand("webtoon"); setProductType("image"); }}
-                >웹툰앱</button>
+                ><TreeIcon type="webtoon" /><span>웹툰앱</span></button>
                 <ul className="tree-children">
                   <li>
                     <button
                       className={`tree-leaf${logoBrand === "webtoon" && productType === "image" ? " active" : ""}`}
                       onClick={() => { setLogoBrand("webtoon"); setProductType("image"); }}
                       type="button"
-                    >이미지형</button>
+                    ><TreeIcon type="image" /><span>이미지형</span></button>
                   </li>
                   <li>
                     <button
                       className={`tree-leaf${logoBrand === "webtoon" && productType === "video" ? " active" : ""}`}
                       onClick={() => { setLogoBrand("webtoon"); setProductType("video"); }}
                       type="button"
-                    >동영상형</button>
+                    ><TreeIcon type="video" /><span>동영상형</span></button>
                   </li>
                 </ul>
               </li>
@@ -871,7 +898,7 @@ setBottomMainColor(hex);
                   className={`tree-leaf${logoBrand === "nps" ? " active" : ""}`}
                   onClick={() => { setLogoBrand("nps"); setProductType("image"); }}
                   type="button"
-                >네이버플러스스토어</button>
+                ><TreeIcon type="store" /><span>네이버플러스스토어</span></button>
               </li>
             </ul>
           </li>
@@ -881,7 +908,7 @@ setBottomMainColor(hex);
               className="tree-leaf tree-leaf--external"
               onClick={() => { window.location.href = TYPE_LIST.find(t => t.key === "normal").url; }}
               type="button"
-            >일반형 ↗</button>
+            ><TreeIcon type="screen" /><span>일반형</span><span className="tree-external-arrow">↗</span></button>
           </li>
         </ul>
       </aside>
