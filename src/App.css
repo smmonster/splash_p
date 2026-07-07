@@ -480,6 +480,15 @@ body {
   border-color: #565d69;
 }
 
+/* 배경색 연결 — 결과 하단 설명 문구 */
+.bg-connect-note {
+  margin-top: 6px;
+  max-width: 520px;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: #9297a2;
+}
+
 .check-green { color: #3ca555; font-weight: 700; }
 .check-red { color: #d73a35; font-weight: 700; }
 .check-none { color: #c0c4cc; font-weight: 700; }

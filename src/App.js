@@ -160,6 +160,85 @@ function hexToRgb(hex) {
   return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
 }
 
+// 색차(ΔE, CIEDE2000) — 두 색이 사람 눈에 얼마나 다른지. 1.5 이하면 육안 식별 어려움
+const BG_DELTAE_THRESHOLD = 1.5;
+function srgbToLin(c) {
+  c /= 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+function rgbToLab(r, g, b) {
+  const R = srgbToLin(r), G = srgbToLin(g), B = srgbToLin(b);
+  let x = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
+  let y = (R * 0.2126 + G * 0.7152 + B * 0.0722);
+  let z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
+  const f = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  x = f(x); y = f(y); z = f(z);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+// CIEDE2000 색차
+function colorDeltaE(hex1, hex2) {
+  if (!hex1 || !hex2) return null;
+  const c1 = hexToRgb(hex1), c2 = hexToRgb(hex2);
+  const [L1, a1, b1] = rgbToLab(c1.r, c1.g, c1.b);
+  const [L2, a2, b2] = rgbToLab(c2.r, c2.g, c2.b);
+  const deg = r => (r * 180) / Math.PI;
+  const rad = d => (d * Math.PI) / 180;
+
+  const C1 = Math.sqrt(a1 * a1 + b1 * b1);
+  const C2 = Math.sqrt(a2 * a2 + b2 * b2);
+  const Cbar = (C1 + C2) / 2;
+  const Cbar7 = Math.pow(Cbar, 7);
+  const G = 0.5 * (1 - Math.sqrt(Cbar7 / (Cbar7 + Math.pow(25, 7))));
+
+  const a1p = (1 + G) * a1;
+  const a2p = (1 + G) * a2;
+  const C1p = Math.sqrt(a1p * a1p + b1 * b1);
+  const C2p = Math.sqrt(a2p * a2p + b2 * b2);
+
+  let h1p = deg(Math.atan2(b1, a1p)); if (h1p < 0) h1p += 360;
+  let h2p = deg(Math.atan2(b2, a2p)); if (h2p < 0) h2p += 360;
+
+  const dLp = L2 - L1;
+  const dCp = C2p - C1p;
+
+  let dhp = 0;
+  if (C1p * C2p !== 0) {
+    const diff = h2p - h1p;
+    if (Math.abs(diff) <= 180) dhp = diff;
+    else dhp = diff > 180 ? diff - 360 : diff + 360;
+  }
+  const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(rad(dhp) / 2);
+
+  const Lbarp = (L1 + L2) / 2;
+  const Cbarp = (C1p + C2p) / 2;
+
+  let hbarp;
+  if (C1p * C2p === 0) hbarp = h1p + h2p;
+  else if (Math.abs(h1p - h2p) <= 180) hbarp = (h1p + h2p) / 2;
+  else hbarp = h1p + h2p < 360 ? (h1p + h2p + 360) / 2 : (h1p + h2p - 360) / 2;
+
+  const T = 1
+    - 0.17 * Math.cos(rad(hbarp - 30))
+    + 0.24 * Math.cos(rad(2 * hbarp))
+    + 0.32 * Math.cos(rad(3 * hbarp + 6))
+    - 0.20 * Math.cos(rad(4 * hbarp - 63));
+
+  const dtheta = 30 * Math.exp(-Math.pow((hbarp - 275) / 25, 2));
+  const Cbarp7 = Math.pow(Cbarp, 7);
+  const Rc = 2 * Math.sqrt(Cbarp7 / (Cbarp7 + Math.pow(25, 7)));
+  const Sl = 1 + (0.015 * Math.pow(Lbarp - 50, 2)) / Math.sqrt(20 + Math.pow(Lbarp - 50, 2));
+  const Sc = 1 + 0.045 * Cbarp;
+  const Sh = 1 + 0.015 * Cbarp * T;
+  const Rt = -Math.sin(rad(2 * dtheta)) * Rc;
+
+  return Math.sqrt(
+    (dLp / Sl) ** 2 +
+    (dCp / Sc) ** 2 +
+    (dHp / Sh) ** 2 +
+    Rt * (dCp / Sc) * (dHp / Sh)
+  );
+}
+
 function loadImg(src) {
   return new Promise((res, rej) => {
     const img = new window.Image();
@@ -561,6 +640,7 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   // 하단 동영상 (웹툰앱 동영상형)
   const [bottomVideoSrc, setBottomVideoSrc] = useState(null);
   const [bottomVideoInfo, setBottomVideoInfo] = useState({});
+  const [bottomVideoBgColor, setBottomVideoBgColor] = useState(null); // 동영상 실제 배경색(상단 경계 샘플)
   const [bottomVideoOverlayOpacity, setBottomVideoOverlayOpacity] = useState(0.3);
   const [manualVideoChecks, setManualVideoChecks] = useState({});
 
@@ -591,6 +671,7 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   // --- 하단 동영상 리셋 (objectURL 정리) ---
   setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
   setBottomVideoInfo({});
+  setBottomVideoBgColor(null);
   setManualVideoChecks({});
 }, [logoBrand, productType]);
 
@@ -776,10 +857,17 @@ setBottomMainColor(hex);
     const url = URL.createObjectURL(file);
     setBottomVideoSrc(url);
 
+    // 화면 밖에 잠깐 붙여 프레임을 확실히 디코딩시킨다(detached 상태로는 canvas가 검정으로 나옴)
     const probe = document.createElement("video");
-    probe.preload = "metadata";
+    probe.preload = "auto";
     probe.muted = true;
+    probe.playsInline = true;
+    probe.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none;";
     probe.src = url;
+    document.body.appendChild(probe);
+
+    let done = false;
+    const cleanup = () => { try { probe.pause(); probe.removeAttribute("src"); probe.load(); probe.remove(); } catch (e) {} };
 
     // 오디오 트랙 검출(자동→실패 시 null=수동 폴백)
     const detectAudio = () => {
@@ -791,7 +879,32 @@ setBottomMainColor(hex);
       return null; // 판별 불가
     };
 
-    const finish = (hasAudio) => {
+    // 현재 프레임 상단 경계(로고영역과 이어지는 부분)의 실제 배경색 샘플
+    const sampleBg = () => {
+      try {
+        if (!probe.videoWidth) return;
+        const c = document.createElement("canvas");
+        c.width = probe.videoWidth;
+        c.height = probe.videoHeight;
+        const cx = c.getContext("2d", { willReadFrequently: true });
+        cx.drawImage(probe, 0, 0);
+        const midX = Math.floor(probe.videoWidth / 2);
+        const y = Math.max(1, Math.floor(probe.videoHeight * 0.02));
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let dx = -30; dx <= 30; dx += 5) {
+          const px = cx.getImageData(Math.min(Math.max(0, midX + dx), probe.videoWidth - 1), y, 1, 1).data;
+          r += px[0]; g += px[1]; b += px[2]; n++;
+        }
+        const hex = "#" + [r, g, b].map(v => Math.round(v / n).toString(16).padStart(2, "0")).join("");
+        setBottomVideoBgColor(hex);
+      } catch (e) {
+        setBottomVideoBgColor(null);
+      }
+    };
+
+    const finish = () => {
+      if (done) return;
+      done = true;
       setBottomVideoInfo({
         w: probe.videoWidth,
         h: probe.videoHeight,
@@ -799,18 +912,19 @@ setBottomMainColor(hex);
         size: file.size,
         ext,
         isMp4,
-        hasAudio,
+        hasAudio: detectAudio(),
       });
+      sampleBg();       // 프레임이 그려진 상태에서 배경색 샘플
+      cleanup();
     };
 
     probe.onloadedmetadata = () => {
-      // 오디오 디코드 카운트를 얻기 위해 짧게 muted 재생 후 판정
-      const immediate = detectAudio();
-      if (immediate !== null) { finish(immediate); return; }
-      const settle = () => { probe.pause(); finish(detectAudio()); };
-      probe.play().then(() => setTimeout(settle, 150)).catch(() => finish(detectAudio()));
+      // 짧게 muted 재생해 프레임 디코딩 + 오디오 판정 후 마무리
+      probe.play()
+        .then(() => setTimeout(finish, 200))
+        .catch(() => setTimeout(finish, 200));
     };
-    probe.onerror = () => finish(null);
+    probe.onerror = () => { if (!done) { done = true; setBottomVideoInfo({ w: 0, h: 0, durationSec: NaN, size: file.size, ext, isMp4, hasAudio: null }); setBottomVideoBgColor(null); cleanup(); } };
   };
 
   // 드래그&드롭 업로드: 드롭된 파일을 기존 change 핸들러로 합성 이벤트 전달
@@ -845,6 +959,7 @@ setBottomMainColor(hex);
   const resetBottomVideo = () => {
     setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
     setBottomVideoInfo({});
+    setBottomVideoBgColor(null);
     setManualVideoChecks({});
   };
 
@@ -1747,6 +1862,36 @@ const guideText = isMapContrastItem
                       <span className="guide-text">
                         {bottomVideoSrc && bottomVideoInfo.hasAudio === null ? " (수동 확인 필요)" : " (오디오 트랙 제외 권장)"}
                       </span>
+                    </span>
+                  </div>
+
+                  {/* 배경색 연결 — 체크하지 않는 참고 지표(용량과 동일 형태) */}
+                  <div className="info-check-row" style={{ alignItems: "flex-start" }}>
+                    <span className="info-check-icon"><span className="guide-text">·</span></span>
+                    <span className="info-check-label">배경색 연결</span>
+                    <span className="info-check-value">
+                      {!bottomVideoSrc || !bottomVideoBgColor ? "-" : (
+                        <>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, verticalAlign: "middle" }}>
+                            <span title="등록 배경색" style={{ width: 13, height: 13, borderRadius: 2, border: "1px solid #ccc", background: bgColor, display: "inline-block" }} />
+                            <span style={{ color: "#aaa" }}>→</span>
+                            <span title="동영상 실제 배경색" style={{ width: 13, height: 13, borderRadius: 2, border: "1px solid #ccc", background: bottomVideoBgColor, display: "inline-block" }} />
+                          </span>
+                          &nbsp;ΔE {colorDeltaE(bgColor, bottomVideoBgColor).toFixed(1)}
+                          <span className="guide-text">
+                            {colorDeltaE(bgColor, bottomVideoBgColor) <= BG_DELTAE_THRESHOLD
+                              ? " (육안 식별 어려움 — 자연 연결)"
+                              : " (색차 있음 — 미리보기 확인 권장)"}
+                          </span>
+                        </>
+                      )}
+                      <div className="bg-connect-note">
+                        등록한 배경색과 동영상 소재의 실제 배경색 차이(ΔE)를 보여줍니다.
+                        ΔE는 국제조명위원회(CIE)의 표준 색차 공식 CIEDE2000으로 계산하며,
+                        사람 눈의 인지 특성을 반영한 업계 표준 지표입니다.
+                        ΔE {BG_DELTAE_THRESHOLD} 이하이면 육안으로 거의 구분되지 않아
+                        실제 화면에서 자연스럽게 이어져 보일 수 있습니다
+                      </div>
                     </span>
                   </div>
                 </div>
