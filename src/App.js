@@ -23,10 +23,10 @@ const WEBTOON_LOGO_GUIDE_LIST = [
   { name: "단독형", orientation: "ONLY", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_only.png" },
 ];
 
-const LOGO_MAX_SIZE_WEBTOON = 40 * 1024;
-const LOGO_MAX_SIZE_DEFAULT = 400 * 1024;
-const BOTTOM_MAX_SIZE_WEBTOON = 300 * 1024;
-const BOTTOM_MAX_SIZE_DEFAULT = 400 * 1024;
+const LOGO_MAX_SIZE_WEBTOON = 40 * 1000;
+const LOGO_MAX_SIZE_DEFAULT = 400 * 1000;
+const BOTTOM_MAX_SIZE_WEBTOON = 300 * 1000;
+const BOTTOM_MAX_SIZE_DEFAULT = 400 * 1000;
 
 // 수동 체크리스트 항목 (기준 문구 포함)
 const MANUAL_CHECK_COMMON = [
@@ -142,16 +142,17 @@ const PREVIEW_MOBILE_W = 375, PREVIEW_MOBILE_H = 812;
 const BOTTOM_VIDEO_DURATION_MIN = 1.5;
 const BOTTOM_VIDEO_DURATION_MAX = 2.0;
 const BOTTOM_VIDEO_DURATION_TOL = 0.05;
-const BOTTOM_VIDEO_MAX_SIZE = 3 * 1024 * 1024; // 3MB 권장
+const BOTTOM_VIDEO_MAX_SIZE = 3 * 1000 * 1000; // 3MB 권장 (Finder 기준 10진)
 const getAllowedBottomExts = (brand) =>
   brand === "webtoon" ? ["jpg", "jpeg"] : ["png", "jpg", "jpeg"];
 
 // --- 유틸 ---
 function formatSize(bytes) {
+  // Finder(macOS)와 동일한 10진(SI) 단위: 1KB=1,000 / 1MB=1,000,000
   if (!bytes && bytes !== 0) return "-";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes < 1000) return `${bytes} B`;
+  if (bytes < 1000 * 1000) return `${(bytes / 1000).toFixed(1)} KB`;
+  return `${(bytes / (1000 * 1000)).toFixed(2)} MB`;
 }
 
 // ===== guide recolor (alpha 유지) =====
