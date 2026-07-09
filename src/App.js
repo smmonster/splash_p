@@ -124,7 +124,9 @@ const MANUAL_CHECK_BOTTOM_VIDEO = [
   { id: "video_font", label: "사용 폰트 가이드 준수",
     guide: "최대 2가지 폰트만 사용 가능, 브랜드 고유 폰트는 고딕형 사용 권장, 폰트 컬러는 최대 2가지만 사용 가능" },
   { id: "video_bg", label: "동영상 배경 처리 방식",
-    guide: "배경이 있는 동영상은 영역을 모두 채우거나 자연스럽게 그라데이션 되도록 처리 권장" },
+    guide: "배경 소재가 있는 경우 잘려보이지 않도록 좌우가 자연스럽게 그라데이션 되도록 처리 권장" },
+  { id: "video_area", label: "이미지 내 영상 배치 영역 준수",
+    guide: "주요 영상 노출 권장 영역으로 영상 이미지가 영역을 과도하게 벗어나지 않았는지 확인" },
   { id: "video_motion", label: "광고 동작으로 혼선을 줄 수 있는 요소 제한",
     guide: "클릭/플레이/프로그레스 동작이 연상되는 이미지를 포함한 경우 사용 제한" },
   { id: "video_restricted", label: "사용불가 및 제한되는 이미지 확인",
@@ -140,6 +142,7 @@ const PREVIEW_MOBILE_W = 375, PREVIEW_MOBILE_H = 812;
 const BOTTOM_VIDEO_DURATION_MIN = 1.5;
 const BOTTOM_VIDEO_DURATION_MAX = 2.0;
 const BOTTOM_VIDEO_DURATION_TOL = 0.05;
+const BOTTOM_VIDEO_MAX_SIZE = 3 * 1024 * 1024; // 3MB 권장
 const getAllowedBottomExts = (brand) =>
   brand === "webtoon" ? ["jpg", "jpeg"] : ["png", "jpg", "jpeg"];
 
@@ -401,7 +404,7 @@ function getTabs(logoBrand, productType) {
     return [
       { key: "logo", label: "로고 이미지" },
       { key: "bottom", label: "하단 썸네일" },
-      { key: "bottomVideo", label: "하단 동영상" },
+      { key: "bottomVideo", label: "하단 영상" },
       { key: "preview", label: "미리보기" },
     ];
   }
@@ -413,7 +416,7 @@ function getTabs(logoBrand, productType) {
 }
 
 // 하단 가이드 오버레이 프레임 (이미지/동영상 공용). mediaEl = <img> 또는 <video>
-function renderBottomGuideFrame(mediaEl, opacity, setOpacity, onReset) {
+function renderBottomGuideFrame(mediaEl, opacity, setOpacity, onReset, showVideoArea) {
   return (
     <>
       <div style={{ width: BOTTOM_WIDTH / 2, height: BOTTOM_HEIGHT / 2, background: "#fafcff", border: "1px solid #eaeaea", position: "relative" }}>
@@ -424,6 +427,16 @@ function renderBottomGuideFrame(mediaEl, opacity, setOpacity, onReset) {
 
         {/* 우측 불투명 레이어 */}
         <div style={{ position: "absolute", top: 0, right: 0, width: (461 / 2) + "px", height: (BOTTOM_HEIGHT / 2) + "px", background: `rgba(0,0,0,${opacity})` }} />
+
+        {/* 영상 노출 영역 (1000×614, 파란 점선) — 하단 영상 전용 */}
+        {showVideoArea && (
+          <>
+            <div style={{ position: "absolute", top: 0, left: (BOTTOM_WIDTH - 1000) / 4, width: 1000 / 2, height: "100%", boxSizing: "border-box", border: "2px dotted #2563eb", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", top: 1, left: (BOTTOM_WIDTH - 1000) / 4 + 4, color: "white", fontWeight: "bold", fontSize: "0.75em", background: "rgba(37, 99, 235, 0.78)", padding: 2, borderRadius: 2 }}>
+              영상 노출 영역
+            </div>
+          </>
+        )}
 
         <div style={{ position: "absolute", top: 1, left: 471, color: "white", fontWeight: "bold", fontSize: "0.75em", background: "rgba(255, 0, 0, 0.6)", padding: 2, borderRadius: 2 }}>
           주요 Creative 영역
@@ -1004,7 +1017,7 @@ setBottomMainColor(hex);
                       className={`tree-leaf${logoBrand === "webtoon" && productType === "video" ? " active" : ""}`}
                       onClick={() => { setLogoBrand("webtoon"); setProductType("video"); }}
                       type="button"
-                    ><TreeIcon type="video" /><span>동영상형</span></button>
+                    ><TreeIcon type="video" /><span>모션형</span></button>
                   </li>
                 </ul>
               </li>
@@ -1755,7 +1768,8 @@ const guideText = isMapContrastItem
                 />,
                 bottomVideoOverlayOpacity,
                 setBottomVideoOverlayOpacity,
-                resetBottomVideo
+                resetBottomVideo,
+                true
               ) : (
                 <div
                   className={`overlay-upload-area${dragZone === "bottomVideo" ? " drag-over" : ""}`}
@@ -1829,15 +1843,18 @@ const guideText = isMapContrastItem
                     </span>
                   </div>
 
-                  {/* 용량 (표시만) */}
+                  {/* 용량 (3MB 이하 권장) */}
                   <div className="info-check-row">
                     <span className="info-check-icon">
-                      <span className="guide-text">·</span>
+                      {!bottomVideoSrc ? <span className="check-none">-</span>
+                        : (bottomVideoInfo.size <= BOTTOM_VIDEO_MAX_SIZE
+                          ? <span className="check-green">✔</span>
+                          : <span className="check-red">✖</span>)}
                     </span>
                     <span className="info-check-label">용량</span>
                     <span className="info-check-value">
                       {bottomVideoSrc ? formatSize(bottomVideoInfo.size) : "-"}
-                      <span className="guide-text"> (제한 없음)</span>
+                      <span className="guide-text"> (3MB 이하 권장)</span>
                     </span>
                   </div>
 
@@ -1865,9 +1882,14 @@ const guideText = isMapContrastItem
                     </span>
                   </div>
 
-                  {/* 배경색 연결 — 체크하지 않는 참고 지표(용량과 동일 형태) */}
+                  {/* 배경색 연결 (색차 ΔE 체크) */}
                   <div className="info-check-row" style={{ alignItems: "flex-start" }}>
-                    <span className="info-check-icon"><span className="guide-text">·</span></span>
+                    <span className="info-check-icon">
+                      {!bottomVideoSrc || !bottomVideoBgColor ? <span className="check-none">-</span>
+                        : (colorDeltaE(bgColor, bottomVideoBgColor) <= BG_DELTAE_THRESHOLD
+                          ? <span className="check-green">✔</span>
+                          : <span className="check-red">✖</span>)}
+                    </span>
                     <span className="info-check-label">배경색 연결</span>
                     <span className="info-check-value">
                       {!bottomVideoSrc || !bottomVideoBgColor ? "-" : (
