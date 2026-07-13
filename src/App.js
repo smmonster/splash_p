@@ -893,7 +893,9 @@ setBottomMainColor(hex);
       return null; // 판별 불가
     };
 
-    // 현재 프레임 상단 경계(로고영역과 이어지는 부분)의 실제 배경색 샘플
+    // 상단 경계(로고영역과 이어지는 부분)의 대표 배경색 샘플
+    // 중앙만 뽑으면 타이틀 텍스트에 오염되므로, 상단 띠 전체를 가로로 스캔해
+    // 채널별 중앙값(median)으로 대표색을 구한다(소수의 텍스트 픽셀 무시).
     const sampleBg = () => {
       try {
         if (!probe.videoWidth) return;
@@ -902,14 +904,17 @@ setBottomMainColor(hex);
         c.height = probe.videoHeight;
         const cx = c.getContext("2d", { willReadFrequently: true });
         cx.drawImage(probe, 0, 0);
-        const midX = Math.floor(probe.videoWidth / 2);
-        const y = Math.max(1, Math.floor(probe.videoHeight * 0.02));
-        let r = 0, g = 0, b = 0, n = 0;
-        for (let dx = -30; dx <= 30; dx += 5) {
-          const px = cx.getImageData(Math.min(Math.max(0, midX + dx), probe.videoWidth - 1), y, 1, 1).data;
-          r += px[0]; g += px[1]; b += px[2]; n++;
-        }
-        const hex = "#" + [r, g, b].map(v => Math.round(v / n).toString(16).padStart(2, "0")).join("");
+        const y0 = Math.min(Math.max(1, Math.round(probe.videoHeight * 0.01)), probe.videoHeight - 1);
+        const bandH = Math.min(Math.max(1, Math.round(probe.videoHeight * 0.02)), probe.videoHeight - y0);
+        const row = cx.getImageData(0, y0, probe.videoWidth, bandH).data; // 상단 띠 전체
+        const rs = [], gs = [], bs = [];
+        for (let i = 0; i < row.length; i += 4) { rs.push(row[i]); gs.push(row[i + 1]); bs.push(row[i + 2]); }
+        const median = arr => {
+          arr.sort((a, b) => a - b);
+          const m = arr.length >> 1;
+          return arr.length % 2 ? arr[m] : Math.round((arr[m - 1] + arr[m]) / 2);
+        };
+        const hex = "#" + [median(rs), median(gs), median(bs)].map(v => v.toString(16).padStart(2, "0")).join("");
         setBottomVideoBgColor(hex);
       } catch (e) {
         setBottomVideoBgColor(null);
