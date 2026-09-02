@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
+import { findAssetShift, ASSET_SHIFT_PARAMS } from "./assetShiftCheck.mjs";
 
 // --- 로고 가이드 파일 세트 ---
 // 지도
@@ -21,6 +22,14 @@ const WEBTOON_LOGO_GUIDE_LIST = [
   { name: "세로형-기본", orientation: "H", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_H_1.png" },
   { name: "세로형-정방형", orientation: "H", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_H_2.png" },
   { name: "단독형", orientation: "ONLY", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_only.png" },
+];
+
+// 파파고 — 웹툰앱과 동일하게 가로형/세로형 아래 단독형을 나란히 둔다.
+// 단독형(orientation "ONLY") 선택 시 배경 컬러 판정 기준이 달라진다.
+const PAPAGO_LOGO_GUIDE_LIST = [
+  { name: "가로형", orientation: "W", file: process.env.PUBLIC_URL + "/papago_splash_logo_W.png" },
+  { name: "세로형", orientation: "H", file: process.env.PUBLIC_URL + "/papago_splash_logo_H.png" },
+  { name: "단독형", orientation: "ONLY", file: process.env.PUBLIC_URL + "/papago_splash_logo_only.png" },
 ];
 
 const LOGO_MAX_SIZE_WEBTOON = 40 * 1000;
@@ -98,7 +107,7 @@ const MANUAL_CHECK_BOTTOM_COMMON = [
   {
     id: "bottom_map_bg",
     label: "이미지 배경 처리 방식",
-    guide: "배경이 있는 이미지는 영역을 모두 채우거나 자연스럽게 그라데이션 되도록 처리 권장"
+    guide: "배경이 있는 이미지는 영역을 모두 채우고, 자연스럽게 그라데이션 되도록 처리 권장"
   },
     {
     id: "bottom_image_avoid",
@@ -113,6 +122,43 @@ const MANUAL_CHECK_BOTTOM_MAP = [
 
 const MANUAL_CHECK_BOTTOM_WEBTOON = [
   // TODO: webtoon 브랜드 하단 수동검수 항목 (현재 없음)
+];
+
+// 파파고 (전면형·이미지형 전용)
+// 사이즈/용량/포맷/투명 기준은 지도앱과 동일 → 브랜드 분기 없이 DEFAULT 상수를 사용한다.
+const MANUAL_CHECK_PAPAGO = [
+  {
+    id: "papago_logo_contrast_choice",
+    label: "파파고 로고 컬러 (Black/White)",
+    guide: "등록한 배경색과의 대비율이 더 큰 색(White/Black)으로 로고 제작 필요"
+  },
+  {
+    id: "papago_check_logo",
+    label: "로고 위계 확인",
+    guide: "로고 영역에는 이벤트/캠페인 명이 아닌 브랜드로고만 적용 가능 (e.g. 네이버예약 O / 10주년 예약위크 X)"
+  }
+];
+
+// 단독형 선택 시에만 노출
+const MANUAL_CHECK_PAPAGO_SOLO = [
+  {
+    id: "papago_solo_logo",
+    label: "단독형",
+    guide: "파파고 로고 변형 불가. 제공된 PNG파일 그대로 사용"
+  }
+];
+
+const MANUAL_CHECK_BOTTOM_PAPAGO = [
+  {
+    id: "papago_bottom_logo_dup",
+    label: "로고 중복 사용 금지",
+    guide: "로고와 비슷한 이미지가 광고 이미지 영역에 중복되어 사용되지 않도록 제작"
+  },
+  {
+    id: "papago_bottom_en_material",
+    label: "영문소재",
+    guide: "시각장애인용 설명문구를 'https://papago.naver.com/' 에 붙여넣어 내용상 특이사항이 있는지 확인"
+  }
 ];
 
 // 웹툰앱 동영상형 '하단 동영상' 수동 체크리스트
@@ -133,6 +179,20 @@ const MANUAL_CHECK_BOTTOM_VIDEO = [
     guide: "제품의 용도나 사용 모습 등이 혐오감을 주거나 신체 일부를 확대하여 혐오감을 주는 경우 노출 불가" },
 ];
 
+
+// 배경 컬러 판정 기준 (HSV의 S·B, 0~100)
+// - 조합형: 채도(S) + 명도(B) 합이 160 이하
+// - 단독형: ① 밝은 톤 S 10 이하 AND B 95 이상  또는  ② 어두운 톤 B 30 이하 (①·② 중 하나만 충족하면 통과)
+const BG_COMBO_SUM_MAX = 160;
+const BG_SOLO_LIGHT_S_MAX = 10;
+const BG_SOLO_LIGHT_B_MIN = 95;
+const BG_SOLO_DARK_B_MAX = 30;
+function checkBgColorPass(s, b, logoType) {
+  if (logoType === "solo") {
+    return (s <= BG_SOLO_LIGHT_S_MAX && b >= BG_SOLO_LIGHT_B_MIN) || (b <= BG_SOLO_DARK_B_MAX);
+  }
+  return s + b <= BG_COMBO_SUM_MAX;
+}
 
 const LOGO_WIDTH = 945, LOGO_HEIGHT = 720;
 const BOTTOM_WIDTH = 1400, BOTTOM_HEIGHT = 614;
@@ -166,6 +226,15 @@ function hexToRgb(hex) {
 
 // 색차(ΔE, CIEDE2000) — 두 색이 사람 눈에 얼마나 다른지. 1.5 이하면 육안 식별 어려움
 const BG_DELTAE_THRESHOLD = 1.5;
+
+// 스틸컷 ↔ 영상 첫 프레임 일치 검수 (보수적 기본값 — 실제 소재로 조정 예정)
+// 두 소재를 작은 격자로 다운스케일해 코덱/포맷 미세 색차(고주파 노이즈)를 평균화한 뒤
+// 셀별 CIEDE2000 ΔE로 비교한다.
+const STILL_FRAME_GRID_W = 32;            // 다운스케일 격자 가로
+const STILL_FRAME_GRID_H = 14;            // 세로 (하단 1400x614 ≈ 2.28:1 근사)
+const STILL_FRAME_CELL_DELTAE = 8;        // 셀 단위 '의미있는 차이' 임계 (코덱 노이즈 상회)
+const STILL_FRAME_MISMATCH_RATIO = 0;  // 고차이 셀 비율 임계 → ①위치 어긋남 / ②다른 이미지
+const STILL_FRAME_COLOR_MEAN_DELTAE = 12; // 전체 평균 ΔE 임계 → ③색감 완전 상이
 function srgbToLin(c) {
   c /= 255;
   return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
@@ -251,6 +320,109 @@ function loadImg(src) {
     img.onerror = rej;
     img.src = src;
   });
+}
+
+// 모션 스틸컷 이미지 ↔ 영상 첫 프레임 일치 검수
+// 두 소재를 동일 격자로 다운스케일 → 셀별 CIEDE2000 ΔE 비교.
+// - 고차이 셀 비율(mismatchRatio): 에셋 위치 어긋남·다른 이미지/타이틀 검출
+// - 전체 평균 ΔE(meanE): 색감이 완전히 다른 경우 검출
+// 다운스케일이 파일 형식(jpg↔영상프레임) 차이의 미세 색차를 평균화해 오탐을 억제한다.
+async function compareStillAndFrame(stillSrc, frameSrc) {
+  if (!stillSrc || !frameSrc) return null;
+  const [a, b] = await Promise.all([loadImg(stillSrc), loadImg(frameSrc)]);
+  const W = STILL_FRAME_GRID_W, H = STILL_FRAME_GRID_H;
+  const sample = (img) => {
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const cx = c.getContext("2d", { willReadFrequently: true });
+    cx.drawImage(img, 0, 0, W, H);
+    return cx.getImageData(0, 0, W, H).data;
+  };
+  const da = sample(a), db = sample(b);
+  const toHex = (d, i) =>
+    "#" + [d[i], d[i + 1], d[i + 2]].map(v => v.toString(16).padStart(2, "0")).join("");
+  let sum = 0, high = 0, n = 0, maxE = 0;
+  for (let i = 0; i < da.length; i += 4) {
+    const e = colorDeltaE(toHex(da, i), toHex(db, i)) || 0;
+    sum += e;
+    if (e > STILL_FRAME_CELL_DELTAE) high++;
+    if (e > maxE) maxE = e;
+    n++;
+  }
+  const meanE = n ? sum / n : 0;
+  const mismatchRatio = n ? high / n : 0;
+  const match =
+    mismatchRatio <= STILL_FRAME_MISMATCH_RATIO && meanE <= STILL_FRAME_COLOR_MEAN_DELTAE;
+  return { match, meanE, mismatchRatio, maxE };
+}
+
+// --- 위치 어긋남 검사 (색차 검사에 얹는 2단계) --------------------------------
+// 색차 검사는 다운스케일 격자 평균을 보므로 작은 평행이동을 배경색에 희석시켜 통과시킨다.
+// (실측: 카피라이트 10px 밀림 소재의 32x14 최대 셀 ΔE 0.78 — 임계 8에 한참 못 미침)
+// 격자를 키우면 정상 소재의 압축 노이즈가 먼저 튀어 오탐이 나므로, 색차 검사는 손대지 않고
+// 색을 보지 않는 위치 검사를 별도로 돌린다. 상세 근거는 assetShiftCheck.mjs 주석 참조.
+
+// 이미지를 원본 해상도 흑백 평면(Uint8Array)으로 변환. 루마 계수는 앱 내 다른 검사와 동일.
+function toGrayPlane(img) {
+  const W = img.naturalWidth || img.width;
+  const H = img.naturalHeight || img.height;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const cx = c.getContext("2d", { willReadFrequently: true });
+  cx.drawImage(img, 0, 0);
+  const d = cx.getImageData(0, 0, W, H).data;
+  const gray = new Uint8Array(W * H);
+  for (let i = 0, p = 0; p < gray.length; i += 4, p++) {
+    gray[p] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+  }
+  return { gray, W, H };
+}
+
+const ASSET_SHIFT_TIMEOUT_MS = 20000;
+
+function runAssetShiftInWorker(still, frame, W, H) {
+  return new Promise((resolve, reject) => {
+    let worker;
+    try {
+      worker = new Worker(new URL("./assetShift.worker.js", import.meta.url));
+    } catch (e) {
+      reject(e); // 워커 미지원 — 호출부가 메인 스레드로 폴백
+      return;
+    }
+    const done = (fn, arg) => { clearTimeout(timer); worker.terminate(); fn(arg); };
+    const timer = setTimeout(
+      () => done(reject, new Error("위치 검사 시간 초과")),
+      ASSET_SHIFT_TIMEOUT_MS
+    );
+    worker.onmessage = (ev) => {
+      const d = ev.data || {};
+      if (d.ok) done(resolve, d.result);
+      else done(reject, new Error(d.message || "위치 검사 실패"));
+    };
+    worker.onerror = () => done(reject, new Error("위치 검사 워커 오류"));
+    worker.postMessage({ still, frame, W, H });
+  });
+}
+
+// 스틸컷·첫 프레임의 위치 어긋남 검사. 워커 우선, 실패 시 메인 스레드 폴백.
+async function checkAssetShift(stillSrc, frameSrc) {
+  if (!stillSrc || !frameSrc) return null;
+  const [a, b] = await Promise.all([loadImg(stillSrc), loadImg(frameSrc)]);
+  const sp = toGrayPlane(a), fp = toGrayPlane(b);
+  // 위치 검사는 같은 좌표를 맞대어 비교하므로 크기가 같아야 성립한다.
+  if (sp.W !== fp.W || sp.H !== fp.H) {
+    return {
+      status: "size-mismatch",
+      shifted: false,
+      stillSize: [sp.W, sp.H],
+      frameSize: [fp.W, fp.H],
+    };
+  }
+  try {
+    return await runAssetShiftInWorker(sp.gray, fp.gray, sp.W, sp.H);
+  } catch (e) {
+    return findAssetShift(sp.gray, fp.gray, sp.W, sp.H);
+  }
 }
 
 // src PNG를 targetHex 단색(알파 유지)으로 변환한 dataURL 반환
@@ -404,7 +576,7 @@ function getTabs(logoBrand, productType) {
   if (logoBrand === "webtoon" && productType === "video") {
     return [
       { key: "logo", label: "로고 이미지" },
-      { key: "bottom", label: "하단 썸네일" },
+      { key: "bottom", label: "모션 스틸컷 이미지" },
       { key: "bottomVideo", label: "하단 영상" },
       { key: "preview", label: "미리보기" },
     ];
@@ -521,6 +693,17 @@ function renderPreviewCard(logoImg, bgColor, bottomMediaEl) {
   );
 }
 
+// 설명 툴팁 — "i" 아이콘에 마우스를 올리거나 포커스하면 검사 방식 설명을 띄운다.
+// 상시 노출하면 결과 판정이 긴 설명에 묻히므로 필요할 때만 펼쳐 보게 한다.
+function InfoTooltip({ children, label = "검사 방식 설명" }) {
+  return (
+    <span className="info-tooltip" tabIndex={0} role="button" aria-label={label}>
+      <span className="info-tooltip-icon" aria-hidden="true">i</span>
+      <span className="info-tooltip-bubble" role="tooltip">{children}</span>
+    </span>
+  );
+}
+
 // 업로드 아이콘 (드롭존 내부)
 function UploadIcon() {
   return (
@@ -551,6 +734,8 @@ function TreeIcon({ type }) {
       return (<svg {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M10 9.5l5 2.5-5 2.5z" /></svg>);
     case "store":
       return (<svg {...p}><path d="M4 7h16l-1 13H5L4 7Z" /><path d="M9 7a3 3 0 0 1 6 0" /></svg>);
+    case "papago":
+      return (<svg {...p}><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18" /></svg>);
     case "screen":
       return (<svg {...p}><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>);
     case "full":
@@ -575,6 +760,12 @@ export default function FullSplashMaterialCheck() {
   const [logoPaddingCheck, setLogoPaddingCheck] = useState(null);
   const [manualChecks, setManualChecks] = useState({});
   const [manualBottomChecks, setManualBottomChecks] = useState({});
+  // 배경 컬러 판정에 쓰는 로고 형태 — 선택한 가이드가 단독형이면 solo
+  // (파파고 외 브랜드는 판정 기준 분기가 없으므로 항상 조합형 기준)
+  const effectiveLogoType =
+    logoBrand === "papago" && PAPAGO_LOGO_GUIDE_LIST[logoGuideIdx]?.orientation === "ONLY"
+      ? "solo"
+      : "combo";
 
 // ✅ 가이드 컬러 모드
 const [guideColorMode, setGuideColorMode] = useState("white"); // map/nps 기본 white
@@ -583,12 +774,15 @@ const [guideOverlaySrc, setGuideOverlaySrc] = useState(null);  // 재색상된 �
 const manualCheckItems = [
     ...(logoBrand === "map" ? MANUAL_CHECK_MAP : []),
     ...(logoBrand === "webtoon" ? MANUAL_CHECK_WEBTOON : []),
+    ...(logoBrand === "papago" ? MANUAL_CHECK_PAPAGO : []),
+    ...(effectiveLogoType === "solo" ? MANUAL_CHECK_PAPAGO_SOLO : []),
     ...MANUAL_CHECK_COMMON
   ];
 
 const manualBottomCheckItems = [
   ...(logoBrand === "map" ? MANUAL_CHECK_BOTTOM_MAP : []),
   ...(logoBrand === "webtoon" ? MANUAL_CHECK_BOTTOM_WEBTOON : []),
+  ...(logoBrand === "papago" ? MANUAL_CHECK_BOTTOM_PAPAGO : []),
   ...MANUAL_CHECK_BOTTOM_COMMON
 ];
 
@@ -615,7 +809,7 @@ useEffect(() => {
 
     // 원본 그대로 쓰는 모드
     const useOriginal =
-      (logoBrand !== "webtoon" && guideColorMode === "white") || // map/nps: white=원본
+      (logoBrand !== "webtoon" && guideColorMode === "white") || // map/nps/파파고: white=원본
       (logoBrand === "webtoon" && guideColorMode === "green");   // webtoon: green=원본
 
     if (useOriginal) {
@@ -644,6 +838,7 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   const currentGuideList =
   logoBrand === "map" ? MAP_LOGO_GUIDE_LIST :
   logoBrand === "webtoon" ? WEBTOON_LOGO_GUIDE_LIST :
+  logoBrand === "papago" ? PAPAGO_LOGO_GUIDE_LIST :
   NPS_LOGO_GUIDE_LIST;
 
   // 하단
@@ -655,8 +850,11 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   const [bottomVideoSrc, setBottomVideoSrc] = useState(null);
   const [bottomVideoInfo, setBottomVideoInfo] = useState({});
   const [bottomVideoBgColor, setBottomVideoBgColor] = useState(null); // 동영상 실제 배경색(상단 경계 샘플)
+  const [bottomVideoFirstFrame, setBottomVideoFirstFrame] = useState(null); // 영상 첫 프레임(t=0) dataURL — 스틸컷 일치 검수용
   const [bottomVideoOverlayOpacity, setBottomVideoOverlayOpacity] = useState(0.3);
   const [manualVideoChecks, setManualVideoChecks] = useState({});
+  const [stillFrameMatch, setStillFrameMatch] = useState(null); // 스틸컷↔첫프레임 색차 검사 결과
+  const [assetShift, setAssetShift] = useState(null); // 스틸컷↔첫프레임 위치 어긋남 검사 결과
 
   // 배경색
   const [bgColor, setBgColor] = useState("#000000");
@@ -686,6 +884,7 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
   setBottomVideoInfo({});
   setBottomVideoBgColor(null);
+  setBottomVideoFirstFrame(null);
   setManualVideoChecks({});
 }, [logoBrand, productType]);
 
@@ -694,6 +893,37 @@ useEffect(() => {
   const valid = getTabs(logoBrand, productType).some(t => t.key === fullTab);
   if (!valid) setFullTab("logo");
 }, [logoBrand, productType, fullTab]);
+
+// 모션 스틸컷 이미지 ↔ 영상 첫 프레임 일치 재계산 (둘 다 있을 때만)
+// ① 색차 검사(즉시) ② 위치 어긋남 검사(워커, 약 0.6초) 를 독립적으로 돌려 함께 표기한다.
+useEffect(() => {
+  let alive = true;
+  if (!bottomImg || !bottomVideoFirstFrame) {
+    setStillFrameMatch(null);
+    setAssetShift(null);
+    return;
+  }
+  setAssetShift({ status: "running" });
+  compareStillAndFrame(bottomImg, bottomVideoFirstFrame)
+    .then(r => { if (alive) setStillFrameMatch(r); })
+    .catch(() => { if (alive) setStillFrameMatch(null); });
+  checkAssetShift(bottomImg, bottomVideoFirstFrame)
+    .then(r => { if (alive) setAssetShift(r); })
+    .catch(e => {
+      if (alive) setAssetShift({ status: "error", message: String((e && e.message) || e) });
+    });
+  return () => { alive = false; };
+}, [bottomImg, bottomVideoFirstFrame]);
+
+// 스틸컷·첫 프레임 종합 판정 — 색차 검사와 위치 검사를 모두 통과해야 '일치'
+const shiftPending = !assetShift || assetShift.status === "running";
+const shiftUsable = !!assetShift && assetShift.status === "ok";
+const shiftFailed = shiftUsable && assetShift.shifted;
+const stillFrameVerdict =
+  !bottomImg || !bottomVideoFirstFrame ? "none"
+  : (!stillFrameMatch || shiftPending) ? "pending"
+  : (!stillFrameMatch.match || shiftFailed) ? "fail"
+  : "pass";
 
 const toggleManualCheck = (id) => {
   setManualChecks(prev => ({ ...prev, [id]: !prev[id] }));
@@ -730,10 +960,19 @@ const toggleManualCheck = (id) => {
       b = parseInt(rgb[3], 16);
     }
     const hsv = rgb2hsv(r, g, b);
-    setBgCheck({ s: hsv.s, b: hsv.v, pass: (hsv.s + hsv.v <= 160) });
+    setBgCheck({ s: hsv.s, b: hsv.v, pass: checkBgColorPass(hsv.s, hsv.v, effectiveLogoType) });
   }
 
   useEffect(() => { applyBgColor(bgColor); }, []);
+
+  // 배경 컬러 판정 재계산 — 배경색을 다시 입력하지 않고 조합형↔단독형만 바꿔도 반영되도록 분리
+  useEffect(() => {
+    const rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(bgColor || "");
+    if (!rgb) return;
+    const hsv = rgb2hsv(parseInt(rgb[1], 16), parseInt(rgb[2], 16), parseInt(rgb[3], 16));
+    setBgCheck({ s: hsv.s, b: hsv.v, pass: checkBgColorPass(hsv.s, hsv.v, effectiveLogoType) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgColor, effectiveLogoType]);
 
   // 로고 업로드
   const handleLogoChange = async (e) => {
@@ -782,6 +1021,7 @@ const toggleManualCheck = (id) => {
     const guideList =
       logoBrand === "map" ? MAP_LOGO_GUIDE_LIST :
       logoBrand === "webtoon" ? WEBTOON_LOGO_GUIDE_LIST :
+      logoBrand === "papago" ? PAPAGO_LOGO_GUIDE_LIST :
       NPS_LOGO_GUIDE_LIST;
 
     (async () => {
@@ -921,6 +1161,34 @@ setBottomMainColor(hex);
       }
     };
 
+    // 첫 프레임(t=0) 캡처 — 스틸컷 일치 검수용. 캡처 후 cleanup까지 담당.
+    const captureFirstFrame = () => {
+      const grab = () => {
+        try {
+          if (!probe.videoWidth) { setBottomVideoFirstFrame(null); }
+          else {
+            const c = document.createElement("canvas");
+            c.width = probe.videoWidth;
+            c.height = probe.videoHeight;
+            const cx = c.getContext("2d", { willReadFrequently: true });
+            cx.drawImage(probe, 0, 0);
+            setBottomVideoFirstFrame(c.toDataURL("image/png"));
+          }
+        } catch (e) {
+          setBottomVideoFirstFrame(null);
+        }
+        cleanup();
+      };
+      try {
+        probe.pause();
+        if (probe.currentTime === 0) { grab(); }
+        else { probe.onseeked = grab; probe.currentTime = 0; }
+      } catch (e) {
+        setBottomVideoFirstFrame(null);
+        cleanup();
+      }
+    };
+
     const finish = () => {
       if (done) return;
       done = true;
@@ -933,8 +1201,8 @@ setBottomMainColor(hex);
         isMp4,
         hasAudio: detectAudio(),
       });
-      sampleBg();       // 프레임이 그려진 상태에서 배경색 샘플
-      cleanup();
+      sampleBg();          // 프레임이 그려진 상태에서 배경색 샘플
+      captureFirstFrame(); // t=0으로 되감아 첫 프레임 캡처 → cleanup
     };
 
     probe.onloadedmetadata = () => {
@@ -943,7 +1211,7 @@ setBottomMainColor(hex);
         .then(() => setTimeout(finish, 200))
         .catch(() => setTimeout(finish, 200));
     };
-    probe.onerror = () => { if (!done) { done = true; setBottomVideoInfo({ w: 0, h: 0, durationSec: NaN, size: file.size, ext, isMp4, hasAudio: null }); setBottomVideoBgColor(null); cleanup(); } };
+    probe.onerror = () => { if (!done) { done = true; setBottomVideoInfo({ w: 0, h: 0, durationSec: NaN, size: file.size, ext, isMp4, hasAudio: null }); setBottomVideoBgColor(null); setBottomVideoFirstFrame(null); cleanup(); } };
   };
 
   // 드래그&드롭 업로드: 드롭된 파일을 기존 change 핸들러로 합성 이벤트 전달
@@ -979,6 +1247,7 @@ setBottomMainColor(hex);
     setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
     setBottomVideoInfo({});
     setBottomVideoBgColor(null);
+    setBottomVideoFirstFrame(null);
     setManualVideoChecks({});
   };
 
@@ -1003,6 +1272,13 @@ setBottomMainColor(hex);
                   onClick={() => { setLogoBrand("map"); setProductType("image"); }}
                   type="button"
                 ><TreeIcon type="map" /><span>지도앱</span></button>
+              </li>
+              <li>
+                <button
+                  className={`tree-leaf${logoBrand === "papago" ? " active" : ""}`}
+                  onClick={() => { setLogoBrand("papago"); setProductType("image"); }}
+                  type="button"
+                ><TreeIcon type="papago" /><span>파파고앱</span></button>
               </li>
               <li>
                 <button
@@ -1120,8 +1396,8 @@ setBottomMainColor(hex);
   zIndex: 10
 }}>
 
-  {/* 지도/네플스: white/black */}
-  {(logoBrand === "map" || logoBrand === "nps") && (
+  {/* 지도/네플스/파파고: white/black */}
+  {(logoBrand === "map" || logoBrand === "nps" || logoBrand === "papago") && (
     <div style={{ display: "flex", gap: 6 }}>
       {["white", "black"].map(m => (
         <button
@@ -1541,10 +1817,20 @@ setBottomMainColor(hex);
                               ? <span className="check-green">✔</span>
                               : <span className="check-red">✖</span>)}
                         </span>
-                        <span className="info-check-label">채도+명도</span>
+                        <span className="info-check-label">
+                          {effectiveLogoType === "solo" ? "배경 컬러" : "채도+명도"}
+                        </span>
                         <span className="info-check-value">
-                          {logoImg ? `S: ${bgCheck.s}, B: ${bgCheck.b} (합: ${bgCheck.s + bgCheck.b})` : "-"}
-                          <span className="guide-text">(합 160 이하)</span>
+                          {logoImg
+                            ? (effectiveLogoType === "solo"
+                              ? `S: ${bgCheck.s}, B: ${bgCheck.b}`
+                              : `S: ${bgCheck.s}, B: ${bgCheck.b} (합: ${bgCheck.s + bgCheck.b})`)
+                            : "-"}
+                          <span className="guide-text">
+                            {effectiveLogoType === "solo"
+                              ? ` (밝은 톤: S ${BG_SOLO_LIGHT_S_MAX} 이하 & B ${BG_SOLO_LIGHT_B_MIN} 이상 / 어두운 톤: B ${BG_SOLO_DARK_B_MAX} 이하)`
+                              : ` (합 ${BG_COMBO_SUM_MAX} 이하)`}
+                          </span>
                         </span>
                       </div>
 
@@ -1615,7 +1901,8 @@ setBottomMainColor(hex);
 <div className="manual-checklist-title">수동 체크리스트</div>
 <div className="ad-info-box-check ad-info-box-check--manual">
   {manualCheckItems.map((item) => {
-  const isMapContrastItem = item.id === "map_logo_contrast_choice";
+  const isMapContrastItem =
+    item.id === "map_logo_contrast_choice" || item.id === "papago_logo_contrast_choice";
 
 const guideText = isMapContrastItem
   ? (
@@ -1922,6 +2209,107 @@ const guideText = isMapContrastItem
                       </div>
                     </span>
                   </div>
+
+                  {/* 스틸컷 ↔ 영상 첫 프레임 일치 검수 */}
+                  <div className="info-check-row" style={{ alignItems: "flex-start" }}>
+                    <span className="info-check-icon">
+                      {stillFrameVerdict === "pass" ? <span className="check-green">✔</span>
+                        : stillFrameVerdict === "fail" ? <span className="check-red">✖</span>
+                        : <span className="check-none">-</span>}
+                    </span>
+                    <span className="info-check-label">스틸컷·첫 프레임 일치</span>
+                    <span className="info-check-value">
+                      {!bottomImg ? "모션 스틸컷 이미지 업로드 필요"
+                        : !bottomVideoSrc ? "하단 동영상 업로드 필요"
+                        : !bottomVideoFirstFrame ? "첫 프레임 추출 실패 — 미리보기 확인 권장"
+                        : stillFrameVerdict === "pending" ? "확인 중…"
+                        : (
+                          <>
+                            {stillFrameVerdict === "pass" ? "일치" : "불일치 의심"}
+                            {stillFrameVerdict === "fail" && (
+                              <span className="guide-text"> — 스틸컷·영상 원본 확인 권장</span>
+                            )}
+                          </>
+                        )}
+                      <InfoTooltip label="스틸컷·첫 프레임 일치 검사 방식 설명">
+                        모션 스틸컷 이미지와 영상 첫 프레임(t=0)을 두 가지로 비교합니다.{" "}
+                        <b>색차 검사</b>는 두 소재를 {STILL_FRAME_GRID_W}×{STILL_FRAME_GRID_H} 격자로 다운스케일해
+                        셀별 CIEDE2000 색차를 봅니다 — 다른 이미지·타이틀(불일치 셀 비율 {(STILL_FRAME_MISMATCH_RATIO * 100).toFixed(0)}% 초과)
+                        또는 색감 완전 상이(평균 ΔE {STILL_FRAME_COLOR_MEAN_DELTAE} 초과)를 잡습니다.{" "}
+                        <b>위치 검사</b>는 색을 보지 않고 흑백으로 바꾼 뒤 {ASSET_SHIFT_PARAMS.BLOCK}×{ASSET_SHIFT_PARAMS.BLOCK}px 블록을
+                        ±{ASSET_SHIFT_PARAMS.SEARCH}px 범위로 밀어보며 더 잘 맞는 자리를 찾습니다 — 색차 검사가 배경색에 희석시켜
+                        놓치는 작은 평행이동(카피라이트 밀림 등)을 잡습니다. {ASSET_SHIFT_PARAMS.MIN_SHIFT}px 이하 이동과
+                        압축 노이즈는 무시하며, 동일 이동량 블록 {ASSET_SHIFT_PARAMS.MIN_CONSENSUS}개 이상이 모일 때만 어긋남으로 판정합니다.
+                        단, 위치 검사는 평행이동만 잡으므로 <b>작은 에셋의 누락·추가는 두 검사 모두 놓칠 수 있어</b> 육안 확인이 필요합니다.
+                      </InfoTooltip>
+
+                      {/* ① 색차 검사 — 다른 이미지·색감 상이 검출 */}
+                      {stillFrameMatch && (
+                        <div className="still-frame-sub">
+                          <span className="still-frame-sub-label">색차 검사</span>
+                          <span className={stillFrameMatch.match ? "check-green" : "check-red"}>
+                            {stillFrameMatch.match ? "일치" : "불일치"}
+                          </span>
+                          <span className="guide-text">
+                            {` 불일치 셀 ${(stillFrameMatch.mismatchRatio * 100).toFixed(0)}%, 평균 ΔE ${stillFrameMatch.meanE.toFixed(1)}, 최대 ΔE ${stillFrameMatch.maxE.toFixed(1)}`}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* ② 위치 검사 — 색차 검사가 놓치는 작은 평행이동 검출 */}
+                      <div className="still-frame-sub">
+                        <span className="still-frame-sub-label">위치 검사</span>
+                        {shiftPending ? <span className="guide-text">검사 중…</span>
+                          : assetShift.status === "size-mismatch" ? (
+                            <span className="check-red">
+                              크기 불일치
+                              <span className="guide-text">
+                                {` 스틸컷 ${assetShift.stillSize.join("×")} vs 영상 ${assetShift.frameSize.join("×")} — 위치 비교 불가`}
+                              </span>
+                            </span>
+                          )
+                          : assetShift.status !== "ok" ? (
+                            <span className="guide-text">
+                              {`검사 불가 (${assetShift.message || assetShift.status})`}
+                            </span>
+                          )
+                          : assetShift.shifted ? (
+                            <>
+                              <span className="check-red">
+                                {`어긋남 dy ${assetShift.dy > 0 ? "+" : ""}${assetShift.dy}px / dx ${assetShift.dx > 0 ? "+" : ""}${assetShift.dx}px`}
+                              </span>
+                              <span className="guide-text">
+                                {` — 영상 쪽 에셋이 ${assetShift.region.y0}~${assetShift.region.y1}px 구간에서 이동 (x ${assetShift.region.x0}~${assetShift.region.x1}, 동일 이동량 ${assetShift.consensus}블록 합의)`}
+                              </span>
+                            </>
+                          )
+                          : (
+                            <>
+                              <span className="check-green">어긋남 없음</span>
+                              <span className="guide-text">
+                                {` 검사 블록 ${assetShift.blocksExamined}개`}
+                                {assetShift.worstCandidate
+                                  ? ` · 최대 의심 블록 오차감소비 ${assetShift.worstCandidate.ratio.toFixed(2)} (임계 ${ASSET_SHIFT_PARAMS.ERR_RATIO} 미만이어야 어긋남)`
+                                  : " · 이동 후보 블록 없음"}
+                              </span>
+                            </>
+                          )}
+                      </div>
+
+                      {bottomImg && bottomVideoFirstFrame && (
+                        <div className="still-frame-compare">
+                          <figure className="still-frame-thumb">
+                            <img src={bottomImg} alt="모션 스틸컷 이미지" />
+                            <figcaption>스틸컷 이미지</figcaption>
+                          </figure>
+                          <figure className="still-frame-thumb">
+                            <img src={bottomVideoFirstFrame} alt="영상 첫 프레임" />
+                            <figcaption>영상 첫 프레임</figcaption>
+                          </figure>
+                        </div>
+                      )}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -2011,7 +2399,7 @@ const guideText = isMapContrastItem
       )}
       {!bottomImg && (
         <li style={{ margin: "12px 0" }}>
-          {productType === "video" ? "하단 썸네일을 업로드해 주세요." : "하단 이미지를 업로드해 주세요."}&nbsp;
+          {productType === "video" ? "모션 스틸컷 이미지를 업로드해 주세요." : "하단 이미지를 업로드해 주세요."}&nbsp;
           <a
             href="#bottom"
             onClick={(e) => {
@@ -2053,18 +2441,18 @@ const guideText = isMapContrastItem
       marginTop: 20
     }}
   >
-    {/* ▼ 미리보기 박스 (동영상형: 썸네일 | 동영상 2분할) */}
+    {/* ▼ 미리보기 박스 (동영상형: 모션 스틸컷 이미지 | 동영상 2분할) */}
     {productType === "video" ? (
       <>
         <div style={{ textAlign: "center" }}>
-          <div style={{ marginBottom: 8, fontWeight: 600, fontSize: "0.9em" }}>썸네일</div>
+          <div style={{ marginBottom: 8, fontWeight: 600, fontSize: "0.9em" }}>모션 스틸컷 이미지</div>
           {renderPreviewCard(
             logoImg,
             bgColor,
             bottomImg && (
               <img
                 src={bottomImg}
-                alt="하단 썸네일"
+                alt="모션 스틸컷 이미지"
                 style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", height: "100%", width: "auto", objectFit: "cover" }}
               />
             )
@@ -2102,7 +2490,7 @@ const guideText = isMapContrastItem
       )
     )}
 
-    {/* ▼ 컬러정보 패널 (동영상형: 좌측 썸네일 왼쪽으로 / 이미지형: 우측 유지) */}
+    {/* ▼ 컬러정보 패널 (동영상형: 좌측 모션 스틸컷 이미지 왼쪽으로 / 이미지형: 우측 유지) */}
     <div
       style={{
         order: productType === "video" ? -1 : 0,

@@ -489,12 +489,126 @@ body {
   color: #9297a2;
 }
 
+/* 설명 툴팁 — "i" 아이콘 hover/포커스 시 노출 */
+.info-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  vertical-align: middle;
+  cursor: help;
+  outline: none;
+}
+.info-tooltip-icon {
+  width: 15px;
+  height: 15px;
+  border: 1px solid #b9bec9;
+  border-radius: 50%;
+  background: #fff;
+  color: #7a8190;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.info-tooltip:hover .info-tooltip-icon,
+.info-tooltip:focus-visible .info-tooltip-icon {
+  border-color: #6b7280;
+  color: #374151;
+}
+.info-tooltip-bubble {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: -8px;
+  z-index: 60;
+  width: 430px;
+  max-width: 70vw;
+  padding: 11px 13px;
+  border-radius: 6px;
+  background: #2f3540;
+  color: #dfe3ea;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+  font-size: 0.79rem;
+  font-weight: 400;
+  line-height: 1.62;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-3px);
+  transition: opacity 0.13s ease, transform 0.13s ease, visibility 0.13s;
+  pointer-events: none;
+}
+.info-tooltip-bubble b { color: #fff; font-weight: 600; }
+/* 아이콘을 가리키는 꼬리 */
+.info-tooltip-bubble::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 11px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 5px solid #2f3540;
+}
+.info-tooltip:hover .info-tooltip-bubble,
+.info-tooltip:focus-visible .info-tooltip-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* 스틸컷 ↔ 영상 첫 프레임 — 검사별(색차 / 위치) 세부 결과 줄 */
+.still-frame-sub {
+  margin-top: 5px;
+  max-width: 560px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.still-frame-sub-label {
+  display: inline-block;
+  min-width: 62px;
+  margin-right: 6px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* 스틸컷 ↔ 영상 첫 프레임 — 육안 비교용 썸네일 */
+.still-frame-compare {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+.still-frame-thumb {
+  margin: 0;
+  text-align: center;
+}
+.still-frame-thumb img {
+  display: block;
+  width: 300px;
+  height: auto;
+  border: 1px solid #d4d7e2;
+  border-radius: 4px;
+  background: #f4f5f8;
+}
+.still-frame-thumb figcaption {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #9297a2;
+}
+
 .check-green { color: #3ca555; font-weight: 700; }
 .check-red { color: #d73a35; font-weight: 700; }
 .check-none { color: #c0c4cc; font-weight: 700; }
 .info-check-label {
   font-weight: 600;
-  min-width: 90px;
+  min-width: 150px;
+  flex-shrink: 0;
+  white-space: nowrap;
   color: #222;
   font-size: 0.98rem;
 }

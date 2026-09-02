@@ -21,3 +21,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# 위치 어긋남 검사 회귀 소재 (make-fixtures.py 로 재생성 — 광고 소재라 커밋하지 않음)
+/tools/asset-shift-regression/fixtures
