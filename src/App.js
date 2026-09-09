@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
-import { findAssetShift, ASSET_SHIFT_PARAMS } from "./assetShiftCheck.mjs";
+import { findAssetShift } from "./assetShiftCheck.mjs";
+import { findEdgeDiffSpots } from "./edgeDiffCheck.mjs";
 
 // --- 로고 가이드 파일 세트 ---
 // 지도
@@ -233,8 +234,15 @@ const BG_DELTAE_THRESHOLD = 1.5;
 const STILL_FRAME_GRID_W = 32;            // 다운스케일 격자 가로
 const STILL_FRAME_GRID_H = 14;            // 세로 (하단 1400x614 ≈ 2.28:1 근사)
 const STILL_FRAME_CELL_DELTAE = 8;        // 셀 단위 '의미있는 차이' 임계 (코덱 노이즈 상회)
+// 4로 낮추자는 제안이 있었으나 실측 결과 되돌렸다. 브라우저 영상 디코딩 경로 기준으로
+// 정상 소재(실제 반입 소재 대비 6.4배 압축)의 최대 셀 ΔE 가 4.04 여서 임계 4 는 오탐이 난다.
+// 게다가 실제 결함들의 최대 셀 ΔE 는 1.03~2.84 로 정상 소재보다 오히려 낮아,
+// 어떤 임계값으로도 이 셀 규칙은 결함을 잡지 못한다. 낮출 이득이 없고 오탐 위험만 생긴다.
+// 이 규칙의 역할은 '다른 장면 오인'처럼 큰 차이(실측 최대 셀 ΔE 42.7)를 걸러내는 안전망이다.
 const STILL_FRAME_MISMATCH_RATIO = 0;  // 고차이 셀 비율 임계 → ①위치 어긋남 / ②다른 이미지
-const STILL_FRAME_COLOR_MEAN_DELTAE = 12; // 전체 평균 ΔE 임계 → ③색감 완전 상이
+const STILL_FRAME_COLOR_MEAN_DELTAE = 1.5; // 전체 평균 ΔE 임계 → ③색감 완전 상이
+// 12 → 1.5 로 조임. 실측 정상 소재 최대 평균 ΔE 0.18 (8.5배 여유),
+// 다른 장면 오인 2.52 → 검출. 12는 지나치게 느슨해 사실상 작동하지 않았다.
 function srgbToLin(c) {
   c /= 255;
   return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
@@ -378,38 +386,39 @@ function toGrayPlane(img) {
   return { gray, W, H };
 }
 
-const ASSET_SHIFT_TIMEOUT_MS = 20000;
+const STILL_FRAME_CHECK_TIMEOUT_MS = 20000;
 
-function runAssetShiftInWorker(still, frame, W, H) {
+function runChecksInWorker(still, frame, W, H) {
   return new Promise((resolve, reject) => {
     let worker;
     try {
-      worker = new Worker(new URL("./assetShift.worker.js", import.meta.url));
+      worker = new Worker(new URL("./stillFrameCheck.worker.js", import.meta.url));
     } catch (e) {
       reject(e); // 워커 미지원 — 호출부가 메인 스레드로 폴백
       return;
     }
     const done = (fn, arg) => { clearTimeout(timer); worker.terminate(); fn(arg); };
     const timer = setTimeout(
-      () => done(reject, new Error("위치 검사 시간 초과")),
-      ASSET_SHIFT_TIMEOUT_MS
+      () => done(reject, new Error("검사 시간 초과")),
+      STILL_FRAME_CHECK_TIMEOUT_MS
     );
     worker.onmessage = (ev) => {
       const d = ev.data || {};
-      if (d.ok) done(resolve, d.result);
-      else done(reject, new Error(d.message || "위치 검사 실패"));
+      if (d.ok) done(resolve, { shift: d.shift, edge: d.edge });
+      else done(reject, new Error(d.message || "검사 실패"));
     };
-    worker.onerror = () => done(reject, new Error("위치 검사 워커 오류"));
+    worker.onerror = () => done(reject, new Error("검사 워커 오류"));
     worker.postMessage({ still, frame, W, H });
   });
 }
 
-// 스틸컷·첫 프레임의 위치 어긋남 검사. 워커 우선, 실패 시 메인 스레드 폴백.
+// 스틸컷·첫 프레임의 위치 어긋남 + 윤곽선 차이 검사. 워커 우선, 실패 시 메인 스레드 폴백.
+// 두 검사가 같은 흑백 평면을 쓰므로 변환을 한 번만 하고 함께 넘긴다.
 async function checkAssetShift(stillSrc, frameSrc) {
   if (!stillSrc || !frameSrc) return null;
   const [a, b] = await Promise.all([loadImg(stillSrc), loadImg(frameSrc)]);
   const sp = toGrayPlane(a), fp = toGrayPlane(b);
-  // 위치 검사는 같은 좌표를 맞대어 비교하므로 크기가 같아야 성립한다.
+  // 두 검사 모두 같은 좌표를 맞대어 비교하므로 크기가 같아야 성립한다.
   if (sp.W !== fp.W || sp.H !== fp.H) {
     return {
       status: "size-mismatch",
@@ -419,9 +428,13 @@ async function checkAssetShift(stillSrc, frameSrc) {
     };
   }
   try {
-    return await runAssetShiftInWorker(sp.gray, fp.gray, sp.W, sp.H);
+    const { shift, edge } = await runChecksInWorker(sp.gray, fp.gray, sp.W, sp.H);
+    return { ...shift, edge };
   } catch (e) {
-    return findAssetShift(sp.gray, fp.gray, sp.W, sp.H);
+    return {
+      ...findAssetShift(sp.gray, fp.gray, sp.W, sp.H),
+      edge: findEdgeDiffSpots(sp.gray, fp.gray, sp.W, sp.H),
+    };
   }
 }
 
@@ -693,14 +706,182 @@ function renderPreviewCard(logoImg, bgColor, bottomMediaEl) {
   );
 }
 
-// 설명 툴팁 — "i" 아이콘에 마우스를 올리거나 포커스하면 검사 방식 설명을 띄운다.
-// 상시 노출하면 결과 판정이 긴 설명에 묻히므로 필요할 때만 펼쳐 보게 한다.
-function InfoTooltip({ children, label = "검사 방식 설명" }) {
+// 스틸컷 ↔ 영상 첫 프레임 육안 비교 — 겹쳐보기 레이어 팝업.
+//
+// 자동 검사(색차·위치)가 놓치는 차이를 검수자가 눈으로 확인하는 화면이다.
+// 스틸컷 밝기를 R, 영상 밝기를 G·B 에 넣어 합성한다. 두 소재가 같으면 회색으로만 겹치고,
+// 어긋나면 획 한쪽에 빨강·다른 쪽에 청록이 몰려 보인다.
+//
+// 색↔출처 대응은 고정이 아니다. R=스틸컷 밝기이므로 '스틸컷이 더 밝으면 빨강'이고,
+// 요소가 배경보다 어두운지 밝은지에 따라 색이 뒤집힌다. 흰 배경 위 회색 글자가 스틸컷에만
+// 있으면 청록으로, 검은 배경 위 흰 글자가 스틸컷에만 있으면 빨강으로 보인다.
+// 그래서 범례를 '스틸컷만 있는 부분/영상만 있는 부분'이 아니라 밝기 기준으로 적었다.
+const COMPARE_ZOOMS = [1, 2, 4];
+
+function StillFrameCompareModal({ stillSrc, frameSrc, spots, onClose }) {
+  const [zoom, setZoom] = useState(1);
+  const [showSpots, setShowSpots] = useState(true);
+  const [overlayUrl, setOverlayUrl] = useState(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [stageW, setStageW] = useState(1000);
+  const stageRef = useRef(null);
+  const dragRef = useRef(null);
+
+  const hasSpots = !!(spots && spots.length);
+  const base = stageW / BOTTOM_WIDTH;
+  const scale = base * zoom;
+  const stageH = BOTTOM_HEIGHT * base;
+
+  // ESC 로 닫기 + 팝업 열린 동안 배경 스크롤 잠금
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  // 스테이지 폭을 팝업 크기에 맞춘다
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const sync = () => setStageW(Math.max(320, el.clientWidth));
+    sync();
+    const ro = new window.ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // 겹쳐보기 합성 — 소재가 바뀔 때만 한 번 계산한다.
+  useEffect(() => {
+    let alive = true;
+    if (!stillSrc || !frameSrc) { setOverlayUrl(null); return; }
+    (async () => {
+      try {
+        const [a, b] = await Promise.all([loadImg(stillSrc), loadImg(frameSrc)]);
+        const W = a.naturalWidth || a.width, H = a.naturalHeight || a.height;
+        const cv = document.createElement("canvas");
+        cv.width = W; cv.height = H;
+        const g = cv.getContext("2d", { willReadFrequently: true });
+        g.drawImage(a, 0, 0);
+        const da = g.getImageData(0, 0, W, H);
+        g.clearRect(0, 0, W, H);
+        g.drawImage(b, 0, 0, W, H);
+        const db = g.getImageData(0, 0, W, H);
+        const out = g.createImageData(W, H);
+        for (let i = 0; i < da.data.length; i += 4) {
+          const la = (da.data[i] * 299 + da.data[i + 1] * 587 + da.data[i + 2] * 114) / 1000;
+          const lb = (db.data[i] * 299 + db.data[i + 1] * 587 + db.data[i + 2] * 114) / 1000;
+          out.data[i] = la;      // 스틸컷 → 빨강 채널
+          out.data[i + 1] = lb;  // 영상 → 초록·파랑 채널 (= 청록)
+          out.data[i + 2] = lb;
+          out.data[i + 3] = 255;
+        }
+        g.putImageData(out, 0, 0);
+        const url = cv.toDataURL("image/png");
+        if (alive) setOverlayUrl(url);
+      } catch (e) {
+        if (alive) setOverlayUrl(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [stillSrc, frameSrc]);
+
+  const clampPan = (x, y, sc) => {
+    const minX = BOTTOM_WIDTH * sc > stageW ? stageW - BOTTOM_WIDTH * sc : 0;
+    const minY = BOTTOM_HEIGHT * sc > stageH ? stageH - BOTTOM_HEIGHT * sc : 0;
+    return { x: Math.min(0, Math.max(minX, x)), y: Math.min(0, Math.max(minY, y)) };
+  };
+
+  // 확대할 때 첫 확인 권장 지점을 화면 중앙으로 옮긴다.
+  // (원점 고정이면 좌상단 빈 여백만 보여 화면이 비어 보인다)
+  const applyZoom = (z) => {
+    setZoom(z);
+    const sc = base * z;
+    if (z === 1 || !hasSpots) { setPan({ x: 0, y: 0 }); return; }
+    const sp = spots[0];
+    setPan(clampPan(stageW / 2 - (sp.x + sp.w / 2) * sc, stageH / 2 - (sp.y + sp.h / 2) * sc, sc));
+  };
+
+  useEffect(() => {
+    const move = (e) => {
+      if (!dragRef.current) return;
+      setPan(clampPan(e.clientX - dragRef.current.sx, e.clientY - dragRef.current.sy, scale));
+    };
+    const up = () => { dragRef.current = null; };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scale, stageW, stageH]);
+
+  const canPan = BOTTOM_WIDTH * scale > stageW;
+
   return (
-    <span className="info-tooltip" tabIndex={0} role="button" aria-label={label}>
-      <span className="info-tooltip-icon" aria-hidden="true">i</span>
-      <span className="info-tooltip-bubble" role="tooltip">{children}</span>
-    </span>
+    <div className="sfc-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="sfc-modal" role="dialog" aria-modal="true" aria-label="스틸컷·영상 첫 프레임 겹쳐보기">
+        <div className="sfc-modal-head">
+          <strong>겹쳐보기</strong>
+          <div className="sfc-grp">
+            {COMPARE_ZOOMS.map(z => (
+              <button key={z} type="button" className={`sfc-btn${zoom === z ? " on" : ""}`}
+                onClick={() => applyZoom(z)}>{z}배</button>
+            ))}
+            {hasSpots && (
+              <button type="button" className={`sfc-btn${showSpots ? " on" : ""}`}
+                onClick={() => setShowSpots(v => !v)}>확인 권장 지점</button>
+            )}
+          </div>
+          <button type="button" className="sfc-close" onClick={onClose} aria-label="닫기">×</button>
+        </div>
+
+        <div ref={stageRef}
+          className={`sfc-stage${canPan ? " pannable" : ""}`}
+          style={{ height: stageH }}
+          onMouseDown={canPan
+            ? (e) => { dragRef.current = { sx: e.clientX - pan.x, sy: e.clientY - pan.y }; }
+            : undefined}>
+          <div className="sfc-inner"
+            style={{
+              width: BOTTOM_WIDTH, height: BOTTOM_HEIGHT,
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+            }}>
+            {overlayUrl && (
+              <img src={overlayUrl} alt="스틸컷·영상 첫 프레임 겹쳐보기" draggable={false} />
+            )}
+            {showSpots && hasSpots && (
+              <div className="sfc-spots">
+                {/* 테두리·여백은 확대율로 나눠 화면상 굵기를 일정하게 둔다.
+                    (그대로 두면 4배에서 테두리가 5px 가까이 되어 짚으려는 대상을 가린다) */}
+                {spots.map((sp, i) => {
+                  const pad = 6 / scale;
+                  return (
+                    <div key={i} className="sfc-spot"
+                      style={{
+                        left: sp.x - pad, top: sp.y - pad,
+                        width: sp.w + pad * 2, height: sp.h + pad * 2,
+                        borderWidth: 1.5 / scale,
+                      }} />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="sfc-legend">
+          <span className="sfc-key" style={{ background: "#e21c3a" }} />스틸컷이 더 밝은 곳
+          <span className="sfc-key" style={{ background: "#22d3ee", marginLeft: 12 }} />영상이 더 밝은 곳
+          <span className="sfc-key" style={{ background: "#888", marginLeft: 12 }} />같은 곳
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -855,6 +1036,7 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   const [manualVideoChecks, setManualVideoChecks] = useState({});
   const [stillFrameMatch, setStillFrameMatch] = useState(null); // 스틸컷↔첫프레임 색차 검사 결과
   const [assetShift, setAssetShift] = useState(null); // 스틸컷↔첫프레임 위치 어긋남 검사 결과
+  const [compareOpen, setCompareOpen] = useState(false); // 겹쳐보기 레이어 팝업 열림 여부
 
   // 배경색
   const [bgColor, setBgColor] = useState("#000000");
@@ -2221,92 +2403,44 @@ const guideText = isMapContrastItem
                     <span className="info-check-value">
                       {!bottomImg ? "모션 스틸컷 이미지 업로드 필요"
                         : !bottomVideoSrc ? "하단 동영상 업로드 필요"
-                        : !bottomVideoFirstFrame ? "첫 프레임 추출 실패 — 미리보기 확인 권장"
+                        : !bottomVideoFirstFrame ? "첫 프레임 추출 실패"
                         : stillFrameVerdict === "pending" ? "확인 중…"
+                        : stillFrameVerdict === "pass" ? "일치"
                         : (
                           <>
-                            {stillFrameVerdict === "pass" ? "일치" : "불일치 의심"}
-                            {stillFrameVerdict === "fail" && (
-                              <span className="guide-text"> — 스틸컷·영상 원본 확인 권장</span>
+                            불일치
+                            {shiftUsable && assetShift.shifted && (
+                              <span className="guide-text">
+                                {` — 위치 어긋남 dy ${assetShift.dy > 0 ? "+" : ""}${assetShift.dy}px / dx ${assetShift.dx > 0 ? "+" : ""}${assetShift.dx}px`}
+                              </span>
+                            )}
+                            {assetShift && assetShift.status === "size-mismatch" && (
+                              <span className="guide-text">
+                                {` — 크기 불일치 (스틸컷 ${assetShift.stillSize.join("×")} / 영상 ${assetShift.frameSize.join("×")})`}
+                              </span>
                             )}
                           </>
                         )}
-                      <InfoTooltip label="스틸컷·첫 프레임 일치 검사 방식 설명">
-                        모션 스틸컷 이미지와 영상 첫 프레임(t=0)을 두 가지로 비교합니다.{" "}
-                        <b>색차 검사</b>는 두 소재를 {STILL_FRAME_GRID_W}×{STILL_FRAME_GRID_H} 격자로 다운스케일해
-                        셀별 CIEDE2000 색차를 봅니다 — 다른 이미지·타이틀(불일치 셀 비율 {(STILL_FRAME_MISMATCH_RATIO * 100).toFixed(0)}% 초과)
-                        또는 색감 완전 상이(평균 ΔE {STILL_FRAME_COLOR_MEAN_DELTAE} 초과)를 잡습니다.{" "}
-                        <b>위치 검사</b>는 색을 보지 않고 흑백으로 바꾼 뒤 {ASSET_SHIFT_PARAMS.BLOCK}×{ASSET_SHIFT_PARAMS.BLOCK}px 블록을
-                        ±{ASSET_SHIFT_PARAMS.SEARCH}px 범위로 밀어보며 더 잘 맞는 자리를 찾습니다 — 색차 검사가 배경색에 희석시켜
-                        놓치는 작은 평행이동(카피라이트 밀림 등)을 잡습니다. {ASSET_SHIFT_PARAMS.MIN_SHIFT}px 이하 이동과
-                        압축 노이즈는 무시하며, 동일 이동량 블록 {ASSET_SHIFT_PARAMS.MIN_CONSENSUS}개 이상이 모일 때만 어긋남으로 판정합니다.
-                        단, 위치 검사는 평행이동만 잡으므로 <b>작은 에셋의 누락·추가는 두 검사 모두 놓칠 수 있어</b> 육안 확인이 필요합니다.
-                      </InfoTooltip>
-
-                      {/* ① 색차 검사 — 다른 이미지·색감 상이 검출 */}
-                      {stillFrameMatch && (
-                        <div className="still-frame-sub">
-                          <span className="still-frame-sub-label">색차 검사</span>
-                          <span className={stillFrameMatch.match ? "check-green" : "check-red"}>
-                            {stillFrameMatch.match ? "일치" : "불일치"}
-                          </span>
-                          <span className="guide-text">
-                            {` 불일치 셀 ${(stillFrameMatch.mismatchRatio * 100).toFixed(0)}%, 평균 ΔE ${stillFrameMatch.meanE.toFixed(1)}, 최대 ΔE ${stillFrameMatch.maxE.toFixed(1)}`}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* ② 위치 검사 — 색차 검사가 놓치는 작은 평행이동 검출 */}
-                      <div className="still-frame-sub">
-                        <span className="still-frame-sub-label">위치 검사</span>
-                        {shiftPending ? <span className="guide-text">검사 중…</span>
-                          : assetShift.status === "size-mismatch" ? (
-                            <span className="check-red">
-                              크기 불일치
-                              <span className="guide-text">
-                                {` 스틸컷 ${assetShift.stillSize.join("×")} vs 영상 ${assetShift.frameSize.join("×")} — 위치 비교 불가`}
-                              </span>
-                            </span>
-                          )
-                          : assetShift.status !== "ok" ? (
-                            <span className="guide-text">
-                              {`검사 불가 (${assetShift.message || assetShift.status})`}
-                            </span>
-                          )
-                          : assetShift.shifted ? (
-                            <>
-                              <span className="check-red">
-                                {`어긋남 dy ${assetShift.dy > 0 ? "+" : ""}${assetShift.dy}px / dx ${assetShift.dx > 0 ? "+" : ""}${assetShift.dx}px`}
-                              </span>
-                              <span className="guide-text">
-                                {` — 영상 쪽 에셋이 ${assetShift.region.y0}~${assetShift.region.y1}px 구간에서 이동 (x ${assetShift.region.x0}~${assetShift.region.x1}, 동일 이동량 ${assetShift.consensus}블록 합의)`}
-                              </span>
-                            </>
-                          )
-                          : (
-                            <>
-                              <span className="check-green">어긋남 없음</span>
-                              <span className="guide-text">
-                                {` 검사 블록 ${assetShift.blocksExamined}개`}
-                                {assetShift.worstCandidate
-                                  ? ` · 최대 의심 블록 오차감소비 ${assetShift.worstCandidate.ratio.toFixed(2)} (임계 ${ASSET_SHIFT_PARAMS.ERR_RATIO} 미만이어야 어긋남)`
-                                  : " · 이동 후보 블록 없음"}
-                              </span>
-                            </>
-                          )}
-                      </div>
 
                       {bottomImg && bottomVideoFirstFrame && (
-                        <div className="still-frame-compare">
-                          <figure className="still-frame-thumb">
-                            <img src={bottomImg} alt="모션 스틸컷 이미지" />
-                            <figcaption>스틸컷 이미지</figcaption>
-                          </figure>
-                          <figure className="still-frame-thumb">
-                            <img src={bottomVideoFirstFrame} alt="영상 첫 프레임" />
-                            <figcaption>영상 첫 프레임</figcaption>
-                          </figure>
-                        </div>
+                        <>
+                          <div className="still-frame-compare">
+                            <figure className="still-frame-thumb">
+                              <img src={bottomImg} alt="모션 스틸컷 이미지" />
+                              <figcaption>스틸컷 이미지</figcaption>
+                            </figure>
+                            <figure className="still-frame-thumb">
+                              <img src={bottomVideoFirstFrame} alt="영상 첫 프레임" />
+                              <figcaption>영상 첫 프레임</figcaption>
+                            </figure>
+                          </div>
+                          {/* 좌우 비교로는 1~2px 밀림이나 얇은 요소 차이가 보이지 않는다.
+                              겹쳐보기는 레이어 팝업으로 크게 띄운다. */}
+                          <button type="button" className="sfc-open"
+                            onClick={() => setCompareOpen(true)}>
+                            겹쳐보기로 확인
+                          </button>
+                        </>
                       )}
                     </span>
                   </div>
@@ -2557,6 +2691,16 @@ const guideText = isMapContrastItem
         <div className="multi-overlay-footer">ⓒ {new Date().getFullYear()} 광고 소재 검수 툴</div>
       </div>
       </div>
+
+      {/* 겹쳐보기 레이어 팝업 — 패널 안에 두면 부모의 크기·스크롤에 갇히므로 최상위에 둔다 */}
+      {compareOpen && bottomImg && bottomVideoFirstFrame && (
+        <StillFrameCompareModal
+          stillSrc={bottomImg}
+          frameSrc={bottomVideoFirstFrame}
+          spots={shiftUsable && assetShift.edge ? assetShift.edge.spots : null}
+          onClose={() => setCompareOpen(false)}
+        />
+      )}
     </div>
   );
 }

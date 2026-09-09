@@ -489,94 +489,6 @@ body {
   color: #9297a2;
 }
 
-/* 설명 툴팁 — "i" 아이콘 hover/포커스 시 노출 */
-.info-tooltip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 6px;
-  vertical-align: middle;
-  cursor: help;
-  outline: none;
-}
-.info-tooltip-icon {
-  width: 15px;
-  height: 15px;
-  border: 1px solid #b9bec9;
-  border-radius: 50%;
-  background: #fff;
-  color: #7a8190;
-  font-size: 0.68rem;
-  font-weight: 700;
-  font-style: italic;
-  font-family: Georgia, "Times New Roman", serif;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: border-color 0.12s ease, color 0.12s ease;
-}
-.info-tooltip:hover .info-tooltip-icon,
-.info-tooltip:focus-visible .info-tooltip-icon {
-  border-color: #6b7280;
-  color: #374151;
-}
-.info-tooltip-bubble {
-  position: absolute;
-  top: calc(100% + 9px);
-  left: -8px;
-  z-index: 60;
-  width: 430px;
-  max-width: 70vw;
-  padding: 11px 13px;
-  border-radius: 6px;
-  background: #2f3540;
-  color: #dfe3ea;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
-  font-size: 0.79rem;
-  font-weight: 400;
-  line-height: 1.62;
-  text-align: left;
-  white-space: normal;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-3px);
-  transition: opacity 0.13s ease, transform 0.13s ease, visibility 0.13s;
-  pointer-events: none;
-}
-.info-tooltip-bubble b { color: #fff; font-weight: 600; }
-/* 아이콘을 가리키는 꼬리 */
-.info-tooltip-bubble::before {
-  content: "";
-  position: absolute;
-  top: -5px;
-  left: 11px;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-bottom: 5px solid #2f3540;
-}
-.info-tooltip:hover .info-tooltip-bubble,
-.info-tooltip:focus-visible .info-tooltip-bubble {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-/* 스틸컷 ↔ 영상 첫 프레임 — 검사별(색차 / 위치) 세부 결과 줄 */
-.still-frame-sub {
-  margin-top: 5px;
-  max-width: 560px;
-  font-size: 0.86rem;
-  line-height: 1.5;
-}
-.still-frame-sub-label {
-  display: inline-block;
-  min-width: 62px;
-  margin-right: 6px;
-  color: #6b7280;
-  font-weight: 600;
-}
-
 /* 스틸컷 ↔ 영상 첫 프레임 — 육안 비교용 썸네일 */
 .still-frame-compare {
   display: flex;
@@ -599,6 +511,116 @@ body {
   margin-top: 4px;
   font-size: 0.78rem;
   color: #9297a2;
+}
+
+/* 스틸컷 ↔ 영상 첫 프레임 — 겹쳐보기 레이어 팝업 */
+.sfc-open {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 13px;
+  border: 1px solid #2563eb;
+  border-radius: 7px;
+  background: #fff;
+  color: #2563eb;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.sfc-open:hover { background: #2563eb; color: #fff; }
+
+.sfc-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 17, 21, 0.58);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.sfc-modal {
+  width: min(1120px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+  padding: 16px 18px 18px;
+}
+.sfc-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+.sfc-close {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.sfc-close:hover { color: #16181d; }
+.sfc-grp { display: flex; gap: 4px; align-items: center; }
+.sfc-btn {
+  padding: 4px 10px;
+  border: 1px solid #d4d7e2;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.sfc-btn.on {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+  font-weight: 600;
+}
+.sfc-stage {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #d4d7e2;
+  border-radius: 6px;
+  background: #888;
+}
+.sfc-stage.pannable { cursor: grab; }
+.sfc-stage.pannable:active { cursor: grabbing; }
+.sfc-inner { position: relative; transform-origin: 0 0; }
+.sfc-inner img {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+.sfc-spots { position: absolute; inset: 0; pointer-events: none; }
+.sfc-spot {
+  position: absolute;
+  border: 1.5px solid #ff9500;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+.sfc-legend {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+.sfc-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  margin-right: 4px;
 }
 
 .check-green { color: #3ca555; font-weight: 700; }

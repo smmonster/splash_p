@@ -6,17 +6,17 @@
 
   [불일치 — 검출되어야 함]
     real          실제 반입 소재의 영상 첫 프레임 (있을 때만)
-    shift3~10     카피라이트 띠만 아래로 N px 밀어 합성 → H.264 인코딩
+    shift2~10     카피라이트 띠만 아래로 N px 밀어 합성 → H.264 인코딩
+    diag1         이미지 전체 대각선 1px 밀림
     shiftx12      카피라이트 띠만 오른쪽으로 12px 밀어 합성
     whole10       이미지 전체를 아래로 10px 밀어 합성
   [정상 — 통과해야 함]
     ok-clean      스틸컷을 그대로 인코딩 (실제 반입 소재보다 노이즈 심함)
     ok-lowbitrate 60kbps 저비트레이트 인코딩 — 압축 노이즈 오탐 내성 확인
     ok-soft       절반 축소 후 재확대 인코딩 — 리스케일 흐림 내성 확인
-  [경계 — 무시되어야 함]
-    shift1, shift2  1~2px 미세 흔들림
-  [알려진 한계 — 위치 검사로는 못 잡음 (색차 검사 몫)]
-    gap-missing   카피라이트 문구를 통째로 삭제
+  [알려진 한계 — 위치 검사로는 못 잡음]
+    shift1        국소 1px 밀림 (오차감소비 미달 — 육안 비교 몫)
+    gap-missing   카피라이트 문구를 통째로 삭제 (평행이동이 아님)
 
 사용법:
     python3 make-fixtures.py <스틸컷.jpg> [영상.mp4] [-o fixtures]
@@ -135,13 +135,19 @@ def main():
     add("ok-lowbitrate", "clean", "60kbps 저비트레이트 — 압축 노이즈 내성", still)
     add("ok-soft", "clean", "절반 축소 후 재확대 — 리스케일 흐림 내성", still)
 
-    # 경계 — 미세 흔들림은 무시되어야 함
-    for dy in (1, 2):
-        add(f"shift{dy}", "clean", f"카피라이트 {dy}px 밀림 — 미세 흔들림으로 무시",
-            shift_band(still, band, dy=dy))
+    # 전체 대각선 1px 밀림 — MIN_SHIFT=0 으로 낮춘 근거 케이스
+    diag = np.roll(np.roll(still, 1, axis=0), 1, axis=1)
+    diag[:1] = still[0]
+    diag[:, :1] = diag[:, 1:2]
+    add("diag1", "shifted", "이미지 전체 대각선 1px 밀림 (MIN_SHIFT=2 로는 놓쳤던 케이스)", diag)
+
+    # 국소 1px — 좁은 영역만 1px 밀리면 압축 노이즈에 묻혀 ERR_RATIO 를 넘지 못한다.
+    # 육안 비교(겹쳐보기·깜빡임)가 담당하는 영역.
+    add("shift1", "known-gap", "카피라이트 띠만 1px 밀림 — 오차감소비 0.70 으로 임계 미달",
+        shift_band(still, band, dy=1))
 
     # 불일치 — 검출되어야 함
-    for dy in (3, 4, 5, 7, 10):
+    for dy in (2, 3, 4, 5, 7, 10):
         add(f"shift{dy}", "shifted", f"카피라이트 {dy}px 아래로 밀림",
             shift_band(still, band, dy=dy))
     add("shiftx12", "shifted", "카피라이트 12px 오른쪽으로 밀림",

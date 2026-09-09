@@ -11,6 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { findAssetShift, ASSET_SHIFT_PARAMS } from "../../src/assetShiftCheck.mjs";
+import { findEdgeDiffSpots, EDGE_DIFF_PARAMS } from "../../src/edgeDiffCheck.mjs";
 
 const dir = process.argv[2] || path.join(import.meta.dirname, "fixtures");
 const metaPath = path.join(dir, "cases.json");
@@ -50,8 +51,15 @@ for (const c of meta.cases) {
     : `어긋남 없음` +
       (r.worstCandidate ? ` (최대 의심 오차감소비 ${r.worstCandidate.ratio.toFixed(3)})` : "");
 
+  // 윤곽선 검사는 판정에 쓰지 않는다. 표시 지점이 상한을 넘지 않는지, 정상 소재에서
+  // 얼마나 시끄러운지를 기록만 한다 (판정 근거로 삼으면 안 되는 이유의 증거).
+  const e = findEdgeDiffSpots(still, frame, W, H);
+  if (e.spots.length > EDGE_DIFF_PARAMS.MAX_SPOTS) { failures++; }
+  const edgeInfo = `윤곽선 표시 ${e.spots.length}곳 / 전체 덩어리 ${e.totalClusters}개, 최대 ${e.maxClusterSize}px`;
+
   const mark = ok ? "PASS" : "FAIL";
   console.log(`[${mark}] ${c.name.padEnd(15)} 기대=${c.expect.padEnd(10)} ${String(r.elapsedMs).padStart(4)}ms  ${detail}`);
+  console.log(`         ${edgeInfo}`);
   if (!ok) console.log(`         ↳ ${c.note}`);
   else if (c.expect === "known-gap") console.log(`         ↳ 알려진 한계: ${c.note}`);
 }
