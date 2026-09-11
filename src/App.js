@@ -320,6 +320,50 @@ function colorDeltaE(hex1, hex2) {
   );
 }
 
+// 무음으로 볼 최대 진폭. 0.003 ≈ -50 dBFS.
+// 완전 무음(0)만 통과시키면 무음 구간에 인코딩 양자화 노이즈가 남은 트랙이 걸린다.
+// 실측 여유: 디지털 무음을 AAC 로 인코딩하면 최대 -91 dB, 실제 사운드는 -14~-18 dB.
+// -50 dB 는 인코더 노이즈보다 40 dB 위, 실제 사운드보다 30 dB 아래에 있다.
+const AUDIO_SILENT_PEAK = 0.003;
+
+// 오디오 트랙 유무 + 실제 소리 유무 판정.
+//
+// <video> 요소의 webkitAudioDecodedByteCount 만으로는 '트랙이 있는지'까지만 알 수 있다.
+// 무음 AAC 트랙이 들어간 소재(내보내기 설정 때문에 흔하다)는 소리가 나지 않는데도
+// 트랙이 있어 '사운드 포함'으로 잡혔다. 가이드의 취지는 '소리가 나지 않을 것'이므로
+// 파일을 직접 디코딩해 최대 진폭을 재고, 무음이면 통과시킨다.
+//
+// 반환: { hasTrack, silent, peak } — 판정 불가 시 null (호출부가 기존 방식으로 폴백)
+async function analyzeAudio(file) {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx || !file || !file.arrayBuffer) return null;
+  let ctx;
+  try {
+    ctx = new Ctx();
+    const buf = await file.arrayBuffer();
+    let audio;
+    try {
+      audio = await ctx.decodeAudioData(buf);
+    } catch (e) {
+      // 디코딩할 오디오가 없다 = 오디오 트랙 없음 (또는 지원하지 않는 오디오 코덱)
+      return { hasTrack: false, silent: true, peak: 0 };
+    }
+    let peak = 0;
+    for (let ch = 0; ch < audio.numberOfChannels; ch++) {
+      const d = audio.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) {
+        const v = d[i] < 0 ? -d[i] : d[i];
+        if (v > peak) peak = v;
+      }
+    }
+    return { hasTrack: true, silent: peak <= AUDIO_SILENT_PEAK, peak };
+  } catch (e) {
+    return null;
+  } finally {
+    if (ctx && ctx.close) { try { ctx.close(); } catch (e) {} }
+  }
+}
+
 function loadImg(src) {
   return new Promise((res, rej) => {
     const img = new window.Image();
@@ -1037,6 +1081,7 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   const [stillFrameMatch, setStillFrameMatch] = useState(null); // 스틸컷↔첫프레임 색차 검사 결과
   const [assetShift, setAssetShift] = useState(null); // 스틸컷↔첫프레임 위치 어긋남 검사 결과
   const [compareOpen, setCompareOpen] = useState(false); // 겹쳐보기 레이어 팝업 열림 여부
+  const videoProbeSeq = useRef(0); // 동영상 업로드 세대 — 늦게 끝난 오디오 분석이 새 소재를 덮지 않도록
 
   // 배경색
   const [bgColor, setBgColor] = useState("#000000");
@@ -1064,6 +1109,7 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
 
   // --- 하단 동영상 리셋 (objectURL 정리) ---
   setBottomVideoSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+  videoProbeSeq.current++;   // 진행 중인 오디오 분석 결과 폐기
   setBottomVideoInfo({});
   setBottomVideoBgColor(null);
   setBottomVideoFirstFrame(null);
@@ -1280,6 +1326,7 @@ setBottomMainColor(hex);
     const file = e.target.files[0];
     if (!file) return;
 
+    const seq = ++videoProbeSeq.current;
     const ext = (file.name.split(".").pop() || "").toLowerCase();
     const isMp4 = ext === "mp4" || file.type === "video/mp4";
 
@@ -1374,6 +1421,7 @@ setBottomMainColor(hex);
     const finish = () => {
       if (done) return;
       done = true;
+      const elementHasAudio = detectAudio();
       setBottomVideoInfo({
         w: probe.videoWidth,
         h: probe.videoHeight,
@@ -1381,7 +1429,26 @@ setBottomMainColor(hex);
         size: file.size,
         ext,
         isMp4,
-        hasAudio: detectAudio(),
+        hasAudio: elementHasAudio,
+        audioSilent: null,   // 소리 유무 판정 중 (아래 analyzeAudio 로 채운다)
+        audioPeak: null,
+      });
+      // 파일을 직접 디코딩해 실제 소리 유무를 재고 결과를 덧붙인다.
+      // 무음 트랙이 들어간 소재를 '사운드 포함'으로 잡지 않기 위한 단계.
+      analyzeAudio(file).then(a => {
+        if (!a || seq !== videoProbeSeq.current) return; // 판정 불가 또는 이미 다른 소재로 교체됨
+        // 디코딩은 실패했는데 <video> 요소는 트랙이 있다고 본 경우 —
+        // 브라우저가 못 읽는 오디오 코덱일 수 있다. '트랙 없음'으로 통과시키면 안 되므로 보류.
+        if (a.hasTrack === false && elementHasAudio === true) {
+          setBottomVideoInfo(prev => ({ ...prev, hasAudio: null, audioSilent: null, audioPeak: null }));
+          return;
+        }
+        setBottomVideoInfo(prev => ({
+          ...prev,
+          hasAudio: a.hasTrack,
+          audioSilent: a.silent,
+          audioPeak: a.peak,
+        }));
       });
       sampleBg();          // 프레임이 그려진 상태에서 배경색 샘플
       captureFirstFrame(); // t=0으로 되감아 첫 프레임 캡처 → cleanup
@@ -2333,26 +2400,33 @@ const guideText = isMapContrastItem
                     </span>
                   </div>
 
-                  {/* 사운드 제외 여부 */}
+                  {/* 사운드 제외 여부 — 가이드 취지가 '소리가 나지 않을 것'이므로
+                      오디오 트랙이 있어도 전 구간 무음이면 통과로 본다. */}
                   <div className="info-check-row">
                     <span className="info-check-icon">
                       {!bottomVideoSrc ? <span className="check-none">-</span>
-                        : (bottomVideoInfo.hasAudio === false
+                        : bottomVideoInfo.hasAudio === false || bottomVideoInfo.audioSilent === true
                           ? <span className="check-green">✔</span>
                           : bottomVideoInfo.hasAudio === true
                             ? <span className="check-red">✖</span>
-                            : <span style={{ color: "#b8860b", fontWeight: "bold" }}>❔</span>)}
+                            : <span style={{ color: "#b8860b", fontWeight: "bold" }}>❔</span>}
                     </span>
                     <span className="info-check-label">사운드 제외</span>
                     <span className="info-check-value">
                       {!bottomVideoSrc ? "-"
                         : bottomVideoInfo.hasAudio === false
                           ? "오디오 트랙 없음"
-                          : bottomVideoInfo.hasAudio === true
-                            ? "오디오 트랙 포함"
-                            : "자동 확인 불가"}
+                          : bottomVideoInfo.audioSilent === true
+                            ? "무음"
+                            : bottomVideoInfo.hasAudio === true
+                              ? "사운드 포함"
+                              : "자동 확인 불가"}
                       <span className="guide-text">
-                        {bottomVideoSrc && bottomVideoInfo.hasAudio === null ? " (수동 확인 필요)" : " (오디오 트랙 제외 권장)"}
+                        {bottomVideoSrc && bottomVideoInfo.hasAudio === true && bottomVideoInfo.audioSilent === true
+                          ? " (오디오 트랙은 있으나 소리 없음)"
+                          : bottomVideoSrc && bottomVideoInfo.hasAudio === null
+                            ? " (수동 확인 필요)"
+                            : " (오디오 트랙 제외 권장)"}
                       </span>
                     </span>
                   </div>
