@@ -51,11 +51,16 @@ for (const c of meta.cases) {
     : `어긋남 없음` +
       (r.worstCandidate ? ` (최대 의심 오차감소비 ${r.worstCandidate.ratio.toFixed(3)})` : "");
 
-  // 윤곽선 검사는 판정에 쓰지 않는다. 표시 지점이 상한을 넘지 않는지, 정상 소재에서
-  // 얼마나 시끄러운지를 기록만 한다 (판정 근거로 삼으면 안 되는 이유의 증거).
+  // 윤곽선 검사는 반려 판정에 쓰지 않고 '확인필요'까지만 올린다.
+  // 표시 지점이 상한을 넘지 않는지, 정상 소재에서 조용한지를 확인한다.
   const e = findEdgeDiffSpots(still, frame, W, H);
   if (e.spots.length > EDGE_DIFF_PARAMS.MAX_SPOTS) { failures++; }
-  const edgeInfo = `윤곽선 표시 ${e.spots.length}곳 / 전체 덩어리 ${e.totalClusters}개, 최대 ${e.maxClusterSize}px`;
+  // 정상 소재(clean)는 윤곽선 검사도 조용해야 한다 — 압축이 극단적인 ok-lowbitrate 는 예외
+  const edgeQuietExpected = c.expect === "clean" && c.name !== "ok-lowbitrate";
+  const edgeOk = !edgeQuietExpected || !e.needsReview;
+  if (!edgeOk) failures++;
+  const edgeInfo = `윤곽선 ${e.needsReview ? "확인필요" : "통과  "} (고립 최대 ${e.maxClusterSize}px, 표시 ${e.spots.length}곳)` +
+    (edgeOk ? "" : "  ← FAIL: 정상 소재인데 확인필요");
 
   const mark = ok ? "PASS" : "FAIL";
   console.log(`[${mark}] ${c.name.padEnd(15)} 기대=${c.expect.padEnd(10)} ${String(r.elapsedMs).padStart(4)}ms  ${detail}`);

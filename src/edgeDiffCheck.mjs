@@ -1,41 +1,52 @@
 /**
  * 모션 스틸컷 ↔ 영상 첫 프레임(t=0) 윤곽선 차이 검사 — '확인 권장 지점' 안내 전용.
  *
- * ⚠ 이 검사 결과로 반려 판정을 내리면 안 된다. 검수자가 육안으로 어디를 볼지
- *   짚어주는 용도로만 쓴다. 자동 판정에 쓸 수 없는 이유는 실측으로 확인했다.
+ * ⚠ 이 검사 결과로 '반려' 판정을 내리면 안 된다. 색차·위치 검사가 모두 통과한 소재에
+ *   '확인필요'(육안 확인 안내)를 띄우는 용도까지만 쓴다. 이유는 실측으로 확인했다.
  *
- *   케이스              덩어리 수   최대 덩어리
- *   정상(기본 인코딩)      38개      149px
- *   정상(저비트레이트)      60개      928px   ← 정상인데 가장 나쁨
- *   정상(리스케일)         41개      160px
- *   결함(10px 밀림)        17개      720px
- *   결함(1px 밀림)         36개      202px
- *   결함(요소 삭제)        52개    1,064px
- *
- *   정상 소재가 실제 결함보다 나쁘게 나와, 덩어리 수·크기 어떤 임계로도 분리되지 않는다.
- *   영상 화질이 조금만 떨어지면 정상 소재가 전부 걸린다.
- *
- * 그래도 쓰는 이유: 색차 검사와 위치 검사가 모두 놓치는 '요소 추가·삭제'를
- * 유일하게 짚어낸다. 위 표의 요소 삭제 케이스에서 카피라이트 자리(y 529~543)를
- * 1,064px 덩어리로 정확히 지목했다. 판정이 아니라 안내라서 오탐 부담이 없다.
+ * 쓰는 이유: 색차 검사와 위치 검사가 모두 놓치는 '요소 추가·삭제'를 유일하게 짚어낸다.
+ * 평행이동이 아니라 있다·없다의 문제라 위치 검사로는 구조적으로 잡히지 않는다.
  *
  * 동작
  *   1. 두 이미지에서 각각 윤곽선 지도를 만든다 (3x3 Sobel 밝기 기울기)
  *   2. 한쪽에만 있는 윤곽선을 찾는다 (상대편 TOL px 이내면 같은 것으로 봄)
- *   3. 남은 것 중 MIN_CLUSTER 이상 뭉친 덩어리를 크기순으로 추린다
+ *   3. 그중 상대편 ISO_RADIUS 안에 윤곽선이 아예 없는 것만 남긴다 = '고립' 잔차
+ *   4. REVIEW_CLUSTER 이상 뭉친 고립 덩어리가 있으면 '확인필요'
  *
- * 전역 색감 변화는 윤곽선 위치를 바꾸지 않아 걸리지 않고,
- * 압축 노이즈는 기존 윤곽선이 1~2px 번지는 것이라 TOL 허용 범위에 흡수된다.
+ * 3번이 핵심이다. 압축 노이즈는 '원래 있던 윤곽선'이 번지거나 약해진 것이라 상대편
+ * 가까이에 반드시 윤곽선이 남는다. 반면 새로 생기거나 사라진 요소는 상대편이 빈 배경이라
+ * 주변에 윤곽선이 없다. 이 필터를 넣기 전에는 정상 소재도 최대 160px 덩어리가 나와
+ * 실제 결함과 구분되지 않았다.
+ *
+ *   케이스                고립 덩어리 최대   판정
+ *   정상(기본 인코딩)           103px        통과
+ *   정상(리스케일)               75px        통과
+ *   정상(저비트레이트)         1,064px        확인필요 ← 오탐
+ *   결함(10px 밀림)             52px        통과 (위치 검사가 담당)
+ *   결함(1px 밀림)              98px        통과 (위치 검사가 담당)
+ *   결함(요소 삭제)           1,064px        확인필요 ✔
+ *
+ * 한계 — 영상 화질이 극단적으로 떨어지면(실제 반입 소재 대비 6.4배 압축) 얇은 글자의
+ * 윤곽선이 아예 사라져 '삭제된 요소'와 구분되지 않는다. 위 표의 저비트레이트 정상 소재가
+ * 그 경우다. 그래서 이 검사는 '확인필요'까지만 올리고 반려 판정에는 넣지 않는다.
+ * 검수자가 겹쳐보기로 한 번 보면 끝나는 비용이라 감수할 만하다.
+ *
+ * 전역 색감 변화는 윤곽선 위치를 바꾸지 않아 걸리지 않는다.
  */
 
 export const EDGE_DIFF_PARAMS = {
-  EDGE_THR: 16,      // 윤곽선으로 볼 밝기 기울기 세기
-  TOL: 2,            // 상대편 윤곽선을 같은 것으로 볼 거리(px). 압축 흔들림 흡수
-  MIN_CLUSTER: 25,   // 이 크기 이상 뭉친 덩어리만 후보로 인정 (px)
-  MAX_SPOTS: 5,      // 화면에 표시할 지점 상한.
-                     //   정상 소재도 38~60개 덩어리가 나오므로 상한 없이 표시하면
-                     //   화면이 마커로 덮여 검수자가 마커 자체를 무시하게 된다.
-                     //   크기 상위 몇 곳만 짚어주는 편이 실제로 도움이 된다.
+  EDGE_THR: 16,       // 윤곽선으로 볼 밝기 기울기 세기
+  TOL: 2,             // 상대편 윤곽선을 같은 것으로 볼 거리(px). 압축 흔들림 흡수
+  ISO_RADIUS: 8,      // '고립' 판정 반경(px). 이 반경 안에 상대편 윤곽선이 전혀 없어야
+                      //   새로 생기거나 사라진 요소로 본다. 압축 노이즈는 원래 있던 윤곽선이
+                      //   번지거나 약해진 것이라 상대편 가까이에 항상 윤곽선이 남는다.
+  MIN_CLUSTER: 25,    // 덩어리로 셀 최소 크기 (px)
+  REVIEW_CLUSTER: 150,// 이 크기 이상 고립 덩어리가 있으면 '확인필요'.
+                      //   실측 — 정상 소재의 고립 덩어리 최대 103px(기본 인코딩)·75px(리스케일),
+                      //   실제 요소 삭제 소재는 198px 이상이 5개. 약 1.9배 여유.
+                      //   자동 반려가 아니라 육안 확인 안내이므로 다소의 오탐은 감수한다.
+  MAX_SPOTS: 5,       // 화면에 표시할 지점 상한. 상한이 없으면 마커가 화면을 덮어
+                      //   검수자가 마커 자체를 무시하게 된다.
 };
 
 /** 3x3 Sobel 기울기 세기가 임계를 넘는 픽셀을 윤곽선으로 표시. 1px 테두리는 제외. */
@@ -133,23 +144,33 @@ export function findEdgeDiffSpots(still, frame, W, H, params) {
 
   const ea = edgeMap(still, W, H, P.EDGE_THR);
   const eb = edgeMap(frame, W, H, P.EDGE_THR);
+  // TOL 까지 부풀린 뒤 이어서 ISO_RADIUS 까지 더 부풀린다 (처음부터 다시 계산하지 않는다)
   const da = dilate(ea, W, H, P.TOL);
   const db = dilate(eb, W, H, P.TOL);
+  const daIso = dilate(da, W, H, Math.max(0, P.ISO_RADIUS - P.TOL));
+  const dbIso = dilate(db, W, H, Math.max(0, P.ISO_RADIUS - P.TOL));
 
   // 양방향으로 본다. 스틸컷에만 있으면 '영상에서 빠짐', 반대는 '스틸컷에서 빠짐'.
-  const residual = (e, dOther) => {
+  // 상대편 ISO_RADIUS 안에 윤곽선이 전혀 없는 것만 남긴다 — 이게 '고립' 잔차다.
+  // 원래 있던 윤곽선이 압축으로 번진 경우는 상대편 가까이에 윤곽선이 남아 여기서 걸러진다.
+  const isolated = (e, dOther, dOtherIso) => {
     const out = new Uint8Array(W * H);
-    for (let i = 0; i < out.length; i++) out[i] = e[i] && !dOther[i] ? 1 : 0;
+    for (let i = 0; i < out.length; i++) out[i] = e[i] && !dOther[i] && !dOtherIso[i] ? 1 : 0;
     return out;
   };
 
   const all = [];
-  for (const [side, mask] of [["still", residual(ea, db)], ["frame", residual(eb, da)]]) {
+  for (const [side, mask] of [["still", isolated(ea, db, dbIso)],
+                              ["frame", isolated(eb, da, daIso)]]) {
     for (const c of clusters(mask, W, H, P.MIN_CLUSTER)) all.push({ ...c, side });
   }
   all.sort((a, b) => b.size - a.size);
 
-  const spots = all.slice(0, P.MAX_SPOTS).map(c => ({
+  // 확인필요 기준을 넘은 덩어리만 표시한다. 기준 미만까지 표시하면 정상 소재에도
+  // 마커가 떠서 검수자가 마커를 무시하게 된다.
+  const significant = all.filter(c => c.size >= P.REVIEW_CLUSTER);
+  const spots = significant.slice(0, P.MAX_SPOTS).map(c => ({
+    kind: "edge",
     side: c.side,
     size: c.size,
     x: c.x0,
@@ -160,8 +181,10 @@ export function findEdgeDiffSpots(still, frame, W, H, params) {
 
   return {
     status: "ok",
+    needsReview: significant.length > 0,
     spots,
-    totalClusters: all.length,   // 정상 소재도 수십 개 나온다 — 판정에 쓰지 말 것
+    reviewCount: significant.length,
+    totalClusters: all.length,
     maxClusterSize: all.length ? all[0].size : 0,
     elapsedMs: Date.now() - t0,
   };

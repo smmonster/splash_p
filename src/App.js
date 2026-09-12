@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { findAssetShift } from "./assetShiftCheck.mjs";
-import { findEdgeDiffSpots } from "./edgeDiffCheck.mjs";
+import { findEdgeDiffSpots, EDGE_DIFF_PARAMS } from "./edgeDiffCheck.mjs";
 
 // --- 로고 가이드 파일 세트 ---
 // 지도
@@ -393,11 +393,27 @@ async function compareStillAndFrame(stillSrc, frameSrc) {
   const da = sample(a), db = sample(b);
   const toHex = (d, i) =>
     "#" + [d[i], d[i + 1], d[i + 2]].map(v => v.toString(16).padStart(2, "0")).join("");
+  // 차이가 큰 셀의 원본 좌표를 모아둔다 — 겹쳐보기에서 어디가 문제인지 짚어주기 위함
+  const imgW = a.naturalWidth || a.width || W;
+  const imgH = a.naturalHeight || a.height || H;
+  const cellW = imgW / W, cellH = imgH / H;
   let sum = 0, high = 0, n = 0, maxE = 0;
+  const cells = [];
   for (let i = 0; i < da.length; i += 4) {
     const e = colorDeltaE(toHex(da, i), toHex(db, i)) || 0;
     sum += e;
-    if (e > STILL_FRAME_CELL_DELTAE) high++;
+    if (e > STILL_FRAME_CELL_DELTAE) {
+      high++;
+      const idx = i / 4;
+      cells.push({
+        kind: "color",
+        deltaE: e,
+        x: Math.round((idx % W) * cellW),
+        y: Math.round(Math.floor(idx / W) * cellH),
+        w: Math.ceil(cellW),
+        h: Math.ceil(cellH),
+      });
+    }
     if (e > maxE) maxE = e;
     n++;
   }
@@ -405,7 +421,8 @@ async function compareStillAndFrame(stillSrc, frameSrc) {
   const mismatchRatio = n ? high / n : 0;
   const match =
     mismatchRatio <= STILL_FRAME_MISMATCH_RATIO && meanE <= STILL_FRAME_COLOR_MEAN_DELTAE;
-  return { match, meanE, mismatchRatio, maxE };
+  cells.sort((p, q) => q.deltaE - p.deltaE);   // 차이 큰 순
+  return { match, meanE, mismatchRatio, maxE, cells: cells.slice(0, EDGE_DIFF_PARAMS.MAX_SPOTS) };
 }
 
 // --- 위치 어긋남 검사 (색차 검사에 얹는 2단계) --------------------------------
@@ -772,6 +789,11 @@ function StillFrameCompareModal({ stillSrc, frameSrc, spots, onClose }) {
   const dragRef = useRef(null);
 
   const hasSpots = !!(spots && spots.length);
+  const kinds = {
+    shift: hasSpots && spots.some(s => s.kind === "shift"),
+    color: hasSpots && spots.some(s => s.kind === "color"),
+    edge: hasSpots && spots.some(s => (s.kind || "edge") === "edge"),
+  };
   const base = stageW / BOTTOM_WIDTH;
   const scale = base * zoom;
   const stageH = BOTTOM_HEIGHT * base;
@@ -906,7 +928,7 @@ function StillFrameCompareModal({ stillSrc, frameSrc, spots, onClose }) {
                 {spots.map((sp, i) => {
                   const pad = 6 / scale;
                   return (
-                    <div key={i} className="sfc-spot"
+                    <div key={i} className={`sfc-spot sfc-spot--${sp.kind || "edge"}`}
                       style={{
                         left: sp.x - pad, top: sp.y - pad,
                         width: sp.w + pad * 2, height: sp.h + pad * 2,
@@ -923,6 +945,13 @@ function StillFrameCompareModal({ stillSrc, frameSrc, spots, onClose }) {
           <span className="sfc-key" style={{ background: "#e21c3a" }} />스틸컷이 더 밝은 곳
           <span className="sfc-key" style={{ background: "#22d3ee", marginLeft: 12 }} />영상이 더 밝은 곳
           <span className="sfc-key" style={{ background: "#888", marginLeft: 12 }} />같은 곳
+          {hasSpots && (
+            <div className="sfc-legend-spots">
+              {kinds.shift && <span><span className="sfc-key sfc-key--shift" />위치 어긋남</span>}
+              {kinds.color && <span><span className="sfc-key sfc-key--color" />색차</span>}
+              {kinds.edge && <span><span className="sfc-key sfc-key--edge" />요소 추가·삭제 의심</span>}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1143,15 +1172,35 @@ useEffect(() => {
   return () => { alive = false; };
 }, [bottomImg, bottomVideoFirstFrame]);
 
-// 스틸컷·첫 프레임 종합 판정 — 색차 검사와 위치 검사를 모두 통과해야 '일치'
+// 스틸컷·첫 프레임 종합 판정 — 세 검사를 역할에 따라 다르게 반영한다.
+//   색차·위치 검사 불일치 → '불일치' (자동 반려 대상)
+//   윤곽선 검사만 불일치   → '확인필요' (반려가 아니라 육안 확인 안내)
+// 윤곽선 검사는 화질이 떨어지면 정상 소재도 걸리므로 반려 판정에 넣지 않는다.
 const shiftPending = !assetShift || assetShift.status === "running";
 const shiftUsable = !!assetShift && assetShift.status === "ok";
 const shiftFailed = shiftUsable && assetShift.shifted;
+const sizeMismatch = !!assetShift && assetShift.status === "size-mismatch";
+const colorFailed = !!stillFrameMatch && !stillFrameMatch.match;
+const edgeReview = shiftUsable && !!assetShift.edge && assetShift.edge.needsReview;
 const stillFrameVerdict =
   !bottomImg || !bottomVideoFirstFrame ? "none"
   : (!stillFrameMatch || shiftPending) ? "pending"
-  : (!stillFrameMatch.match || shiftFailed) ? "fail"
+  : (colorFailed || shiftFailed || sizeMismatch) ? "fail"
+  : edgeReview ? "review"
   : "pass";
+
+// 겹쳐보기에 표시할 확인 권장 지점 — 세 검사 중 하나라도 걸린 영역을 모두 모은다.
+// 불일치가 났는데 화면에 아무 표시가 없으면 어디를 고쳐야 할지 알 수 없다.
+const compareSpots = (() => {
+  const out = [];
+  if (shiftFailed && assetShift.region) {
+    const r = assetShift.region;
+    out.push({ kind: "shift", x: r.x0, y: r.y0, w: r.x1 - r.x0, h: r.y1 - r.y0 });
+  }
+  if (colorFailed && stillFrameMatch.cells) out.push(...stillFrameMatch.cells);
+  if (shiftUsable && assetShift.edge) out.push(...assetShift.edge.spots);
+  return out;
+})();
 
 const toggleManualCheck = (id) => {
   setManualChecks(prev => ({ ...prev, [id]: !prev[id] }));
@@ -2471,6 +2520,7 @@ const guideText = isMapContrastItem
                     <span className="info-check-icon">
                       {stillFrameVerdict === "pass" ? <span className="check-green">✔</span>
                         : stillFrameVerdict === "fail" ? <span className="check-red">✖</span>
+                        : stillFrameVerdict === "review" ? <span className="check-amber">⚠</span>
                         : <span className="check-none">-</span>}
                     </span>
                     <span className="info-check-label">스틸컷·첫 프레임 일치</span>
@@ -2480,15 +2530,28 @@ const guideText = isMapContrastItem
                         : !bottomVideoFirstFrame ? "첫 프레임 추출 실패"
                         : stillFrameVerdict === "pending" ? "확인 중…"
                         : stillFrameVerdict === "pass" ? "일치"
+                        : stillFrameVerdict === "review" ? (
+                          <>
+                            확인필요
+                            <span className="guide-text">
+                              {` — 요소 추가·삭제 의심 (겹쳐보기에서 ${assetShift.edge.spots.length}곳 표시)`}
+                            </span>
+                          </>
+                        )
                         : (
                           <>
                             불일치
-                            {shiftUsable && assetShift.shifted && (
+                            {shiftFailed && (
                               <span className="guide-text">
                                 {` — 위치 어긋남 dy ${assetShift.dy > 0 ? "+" : ""}${assetShift.dy}px / dx ${assetShift.dx > 0 ? "+" : ""}${assetShift.dx}px`}
                               </span>
                             )}
-                            {assetShift && assetShift.status === "size-mismatch" && (
+                            {colorFailed && !shiftFailed && (
+                              <span className="guide-text">
+                                {` — 색차 (최대 ΔE ${stillFrameMatch.maxE.toFixed(1)})`}
+                              </span>
+                            )}
+                            {sizeMismatch && (
                               <span className="guide-text">
                                 {` — 크기 불일치 (스틸컷 ${assetShift.stillSize.join("×")} / 영상 ${assetShift.frameSize.join("×")})`}
                               </span>
@@ -2771,7 +2834,7 @@ const guideText = isMapContrastItem
         <StillFrameCompareModal
           stillSrc={bottomImg}
           frameSrc={bottomVideoFirstFrame}
-          spots={shiftUsable && assetShift.edge ? assetShift.edge.spots : null}
+          spots={compareSpots}
           onClose={() => setCompareOpen(false)}
         />
       )}

@@ -609,6 +609,19 @@ body {
   border-radius: 2px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
+/* 어떤 검사가 짚은 자리인지 색으로 구분 — 겹쳐보기 자체가 빨강·청록이라 겹치지 않는 색을 쓴다 */
+.sfc-spot--shift { border-color: #a855f7; }
+.sfc-spot--color { border-color: #facc15; }
+.sfc-spot--edge  { border-color: #ff9500; }
+.sfc-key--shift { background: #a855f7; }
+.sfc-key--color { background: #facc15; }
+.sfc-key--edge  { background: #ff9500; }
+.sfc-legend-spots {
+  margin-top: 4px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 .sfc-legend {
   margin-top: 10px;
   font-size: 0.78rem;
@@ -624,6 +637,7 @@ body {
 }
 
 .check-green { color: #3ca555; font-weight: 700; }
+.check-amber { color: #c26a00; font-weight: 700; }
 .check-red { color: #d73a35; font-weight: 700; }
 .check-none { color: #c0c4cc; font-weight: 700; }
 .info-check-label {
