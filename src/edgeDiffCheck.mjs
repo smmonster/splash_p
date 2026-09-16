@@ -1,52 +1,49 @@
 /**
- * 모션 스틸컷 ↔ 영상 첫 프레임(t=0) 윤곽선 차이 검사 — '확인 권장 지점' 안내 전용.
+ * 모션 스틸컷 ↔ 영상 첫 프레임(t=0) 윤곽선 차이 검사 — '확인필요' 판정 전용.
  *
  * ⚠ 이 검사 결과로 '반려' 판정을 내리면 안 된다. 색차·위치 검사가 모두 통과한 소재에
- *   '확인필요'(육안 확인 안내)를 띄우는 용도까지만 쓴다. 이유는 실측으로 확인했다.
+ *   '확인필요'(육안 확인 안내)를 띄우는 용도까지만 쓴다.
  *
  * 쓰는 이유: 색차 검사와 위치 검사가 모두 놓치는 '요소 추가·삭제'를 유일하게 짚어낸다.
  * 평행이동이 아니라 있다·없다의 문제라 위치 검사로는 구조적으로 잡히지 않는다.
  *
- * 동작
+ * 동작 — 지역별 '윤곽선 밀도'를 비교한다
  *   1. 두 이미지에서 각각 윤곽선 지도를 만든다 (3x3 Sobel 밝기 기울기)
- *   2. 한쪽에만 있는 윤곽선을 찾는다 (상대편 TOL px 이내면 같은 것으로 봄)
- *   3. 그중 상대편 ISO_RADIUS 안에 윤곽선이 아예 없는 것만 남긴다 = '고립' 잔차
- *   4. REVIEW_CLUSTER 이상 뭉친 고립 덩어리가 있으면 '확인필요'
+ *   2. BLOCK px 창을 STRIDE 간격으로 훑으며 창 안의 윤곽선 픽셀 수를 양쪽에서 센다
+ *   3. 적은 쪽 / 많은 쪽 비율이 RATIO 미만인 창을 '의심 블록'으로 본다
+ *   4. 의심 블록이 MIN_BLOCKS 개 이상이면 '확인필요'
  *
- * 3번이 핵심이다. 압축 노이즈는 '원래 있던 윤곽선'이 번지거나 약해진 것이라 상대편
- * 가까이에 반드시 윤곽선이 남는다. 반면 새로 생기거나 사라진 요소는 상대편이 빈 배경이라
- * 주변에 윤곽선이 없다. 이 필터를 넣기 전에는 정상 소재도 최대 160px 덩어리가 나와
- * 실제 결함과 구분되지 않았다.
+ * 왜 밀도 비교인가 — 앞서 '한쪽에만 있는 윤곽선'을 세는 방식을 썼는데, 배경이 복잡한 곳에
+ * 얹힌 요소를 놓쳤다. 고양이 소재의 얇은 흰 텍스트가 고양이 털 위에 있어서 텍스트 윤곽선
+ * 주변에 털 윤곽선이 양쪽 모두 존재했고, 그래서 '한쪽에만 있는 것'으로 분류되지 않았다.
+ * 밀도 비교는 배경과 무관하게 '이 자리에 윤곽선이 훨씬 많다/적다'를 보므로 이 경우도 잡는다.
  *
- *   케이스                고립 덩어리 최대   판정
- *   정상(기본 인코딩)           103px        통과
- *   정상(리스케일)               75px        통과
- *   정상(저비트레이트)         1,064px        확인필요 ← 오탐
- *   결함(10px 밀림)             52px        통과 (위치 검사가 담당)
- *   결함(1px 밀림)              98px        통과 (위치 검사가 담당)
- *   결함(요소 삭제)           1,064px        확인필요 ✔
+ * 실측 (실제 반입 소재 기준, 블록 최저 비율)
+ *   고양이 · 얇은 텍스트 추가       0.03   확인필요 ✔
+ *   고양이 · 정상 (JPEG q95/q85)   0.89   통과 ✔
+ *   블리치 · 정상 (JPEG q95)       0.96   통과 ✔
+ *   블리치 · 정상 (JPEG q85)       0.87   통과 ✔
+ * 결함 0.03 과 정상 0.87 사이가 넓어 RATIO 0.30 을 그 사이에 둔다.
  *
- * 한계 — 영상 화질이 극단적으로 떨어지면(실제 반입 소재 대비 6.4배 압축) 얇은 글자의
- * 윤곽선이 아예 사라져 '삭제된 요소'와 구분되지 않는다. 위 표의 저비트레이트 정상 소재가
- * 그 경우다. 그래서 이 검사는 '확인필요'까지만 올리고 반려 판정에는 넣지 않는다.
+ * 한계 — 영상을 실제 반입 수준보다 훨씬 심하게 압축하면(실측 2.8배 이상) 원본의 가는
+ * 무늬가 뭉개져 윤곽선이 통째로 사라지고, '요소가 삭제된 것'과 구분되지 않는다.
+ * 그래서 이 검사는 '확인필요'까지만 올리고 반려 판정에는 넣지 않는다.
  * 검수자가 겹쳐보기로 한 번 보면 끝나는 비용이라 감수할 만하다.
  *
  * 전역 색감 변화는 윤곽선 위치를 바꾸지 않아 걸리지 않는다.
  */
 
 export const EDGE_DIFF_PARAMS = {
-  EDGE_THR: 16,       // 윤곽선으로 볼 밝기 기울기 세기
-  TOL: 2,             // 상대편 윤곽선을 같은 것으로 볼 거리(px). 압축 흔들림 흡수
-  ISO_RADIUS: 8,      // '고립' 판정 반경(px). 이 반경 안에 상대편 윤곽선이 전혀 없어야
-                      //   새로 생기거나 사라진 요소로 본다. 압축 노이즈는 원래 있던 윤곽선이
-                      //   번지거나 약해진 것이라 상대편 가까이에 항상 윤곽선이 남는다.
-  MIN_CLUSTER: 25,    // 덩어리로 셀 최소 크기 (px)
-  REVIEW_CLUSTER: 150,// 이 크기 이상 고립 덩어리가 있으면 '확인필요'.
-                      //   실측 — 정상 소재의 고립 덩어리 최대 103px(기본 인코딩)·75px(리스케일),
-                      //   실제 요소 삭제 소재는 198px 이상이 5개. 약 1.9배 여유.
-                      //   자동 반려가 아니라 육안 확인 안내이므로 다소의 오탐은 감수한다.
-  MAX_SPOTS: 5,       // 화면에 표시할 지점 상한. 상한이 없으면 마커가 화면을 덮어
-                      //   검수자가 마커 자체를 무시하게 된다.
+  EDGE_THR: 16,     // 윤곽선으로 볼 밝기 기울기 세기
+  BLOCK: 32,        // 밀도를 비교할 창 한 변 (px)
+  STRIDE: 16,       // 창 이동 간격 — 절반씩 겹쳐 경계에 걸친 요소도 덮는다
+  MIN_EDGES: 40,    // 창 안 윤곽선이 이보다 적으면 건너뛴다.
+                    //   몇 픽셀짜리 창은 비율이 쉽게 0에 가까워져 통계가 불안정하다.
+  RATIO: 0.30,      // 적은 쪽/많은 쪽 비율이 이 값 미만이면 의심 블록.
+                    //   실측 — 실제 결함 0.03, 실제 정상 소재 최저 0.87. 그 사이 값.
+  MIN_BLOCKS: 2,    // 의심 블록이 이 개수 이상이어야 '확인필요' (우연한 한 칸 억제)
+  MAX_SPOTS: 5,     // 화면에 표시할 지점 상한. 상한이 없으면 마커가 화면을 덮어
+                    //   검수자가 마커 자체를 무시하게 된다.
 };
 
 /** 3x3 Sobel 기울기 세기가 임계를 넘는 픽셀을 윤곽선으로 표시. 1px 테두리는 제외. */
@@ -66,77 +63,66 @@ function edgeMap(gray, W, H, thr) {
   return out;
 }
 
-/** 3x3 팽창을 iterations 번. 가로·세로로 분리해 처리한다 (이진 팽창은 분리 가능). */
-function dilate(mask, W, H, iterations) {
-  let cur = mask;
-  for (let it = 0; it < iterations; it++) {
-    const h = new Uint8Array(W * H);
-    for (let y = 0; y < H; y++) {
-      const r = y * W;
-      for (let x = 0; x < W; x++) {
-        h[r + x] = cur[r + x] ||
-          (x > 0 ? cur[r + x - 1] : 0) ||
-          (x < W - 1 ? cur[r + x + 1] : 0);
-      }
+/** 적분 영상 — 임의 사각형의 합을 네 번 조회로 구하려고 미리 누적해 둔다. */
+function integralImage(mask, W, H) {
+  const I = new Int32Array((W + 1) * (H + 1));
+  for (let y = 0; y < H; y++) {
+    let rowSum = 0;
+    for (let x = 0; x < W; x++) {
+      rowSum += mask[y * W + x];
+      I[(y + 1) * (W + 1) + x + 1] = I[y * (W + 1) + x + 1] + rowSum;
     }
-    const v = new Uint8Array(W * H);
-    for (let y = 0; y < H; y++) {
-      const r = y * W;
-      for (let x = 0; x < W; x++) {
-        v[r + x] = h[r + x] ||
-          (y > 0 ? h[r - W + x] : 0) ||
-          (y < H - 1 ? h[r + W + x] : 0);
-      }
-    }
-    cur = v;
   }
-  return cur;
+  return I;
 }
 
-/** 8방향으로 연결된 픽셀 덩어리를 찾아 크기·경계상자 목록으로 반환. */
-function clusters(mask, W, H, minSize) {
-  const seen = new Uint8Array(W * H);
-  const stack = new Int32Array(W * H);
-  const found = [];
-  for (let i = 0; i < mask.length; i++) {
-    if (!mask[i] || seen[i]) continue;
-    let sp = 0;
-    stack[sp++] = i;
-    seen[i] = 1;
-    let size = 0;
-    let y0 = (i / W) | 0, y1 = y0, x0 = i % W, x1 = x0;
-    while (sp > 0) {
-      const p = stack[--sp];
-      const py = (p / W) | 0, px = p % W;
-      size++;
-      if (py < y0) y0 = py; else if (py > y1) y1 = py;
-      if (px < x0) x0 = px; else if (px > x1) x1 = px;
-      for (let dy = -1; dy <= 1; dy++) {
-        const ny = py + dy;
-        if (ny < 0 || ny >= H) continue;
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = px + dx;
-          if (nx < 0 || nx >= W) continue;
-          const q = ny * W + nx;
-          if (mask[q] && !seen[q]) { seen[q] = 1; stack[sp++] = q; }
+const boxSum = (I, W, x0, y0, x1, y1) =>
+  I[(y1 + 1) * (W + 1) + x1 + 1] - I[y0 * (W + 1) + x1 + 1]
+  - I[(y1 + 1) * (W + 1) + x0] + I[y0 * (W + 1) + x0];
+
+/**
+ * 인접한 의심 블록을 하나의 영역으로 합친다.
+ * STRIDE < BLOCK 이라 같은 요소를 덮는 블록들이 서로 겹치므로,
+ * 그대로 두면 마커가 여러 개로 쪼개져 보인다.
+ */
+function mergeBlocks(hits, block) {
+  const groups = [];
+  const used = new Uint8Array(hits.length);
+  for (let i = 0; i < hits.length; i++) {
+    if (used[i]) continue;
+    used[i] = 1;
+    const queue = [i];
+    let x0 = hits[i].x, y0 = hits[i].y;
+    let x1 = hits[i].x + block, y1 = hits[i].y + block;
+    let worst = hits[i].ratio;
+    while (queue.length) {
+      const cur = hits[queue.pop()];
+      for (let j = 0; j < hits.length; j++) {
+        if (used[j]) continue;
+        // 블록끼리 겹치거나 맞닿으면 같은 영역으로 본다
+        if (Math.abs(hits[j].x - cur.x) <= block && Math.abs(hits[j].y - cur.y) <= block) {
+          used[j] = 1;
+          queue.push(j);
+          x0 = Math.min(x0, hits[j].x); y0 = Math.min(y0, hits[j].y);
+          x1 = Math.max(x1, hits[j].x + block); y1 = Math.max(y1, hits[j].y + block);
+          if (hits[j].ratio < worst) worst = hits[j].ratio;
         }
       }
     }
-    if (size >= minSize) found.push({ size, y0, x0, y1, x1 });
+    groups.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, ratio: worst });
   }
-  found.sort((a, b) => b.size - a.size);
-  return found;
+  groups.sort((a, b) => a.ratio - b.ratio);   // 차이가 큰(비율 낮은) 영역이 먼저
+  return groups;
 }
 
 /**
- * 확인 권장 지점 목록을 반환.
+ * 윤곽선 밀도 차이가 큰 지점을 찾아 '확인필요' 여부와 표시 지점을 반환.
  *
  * @param {Uint8Array} still 스틸컷 흑백 평면 (길이 W*H)
  * @param {Uint8Array} frame 영상 첫 프레임 흑백 평면 (길이 W*H)
  * @param {number} W 가로 px
  * @param {number} H 세로 px
  * @param {object} [params] EDGE_DIFF_PARAMS 일부 덮어쓰기 (회귀 테스트용)
- * @returns spots — 크기 상위 지점. side: "still"=영상에서 빠진 요소, "frame"=스틸컷에서 빠진 요소
  */
 export function findEdgeDiffSpots(still, frame, W, H, params) {
   const P = { ...EDGE_DIFF_PARAMS, ...(params || {}) };
@@ -144,48 +130,43 @@ export function findEdgeDiffSpots(still, frame, W, H, params) {
 
   const ea = edgeMap(still, W, H, P.EDGE_THR);
   const eb = edgeMap(frame, W, H, P.EDGE_THR);
-  // TOL 까지 부풀린 뒤 이어서 ISO_RADIUS 까지 더 부풀린다 (처음부터 다시 계산하지 않는다)
-  const da = dilate(ea, W, H, P.TOL);
-  const db = dilate(eb, W, H, P.TOL);
-  const daIso = dilate(da, W, H, Math.max(0, P.ISO_RADIUS - P.TOL));
-  const dbIso = dilate(db, W, H, Math.max(0, P.ISO_RADIUS - P.TOL));
+  const Ia = integralImage(ea, W, H);
+  const Ib = integralImage(eb, W, H);
 
-  // 양방향으로 본다. 스틸컷에만 있으면 '영상에서 빠짐', 반대는 '스틸컷에서 빠짐'.
-  // 상대편 ISO_RADIUS 안에 윤곽선이 전혀 없는 것만 남긴다 — 이게 '고립' 잔차다.
-  // 원래 있던 윤곽선이 압축으로 번진 경우는 상대편 가까이에 윤곽선이 남아 여기서 걸러진다.
-  const isolated = (e, dOther, dOtherIso) => {
-    const out = new Uint8Array(W * H);
-    for (let i = 0; i < out.length; i++) out[i] = e[i] && !dOther[i] && !dOtherIso[i] ? 1 : 0;
-    return out;
-  };
-
-  const all = [];
-  for (const [side, mask] of [["still", isolated(ea, db, dbIso)],
-                              ["frame", isolated(eb, da, daIso)]]) {
-    for (const c of clusters(mask, W, H, P.MIN_CLUSTER)) all.push({ ...c, side });
+  const hits = [];
+  let worstRatio = 1;
+  for (let y = 0; y + P.BLOCK <= H; y += P.STRIDE) {
+    for (let x = 0; x + P.BLOCK <= W; x += P.STRIDE) {
+      const a = boxSum(Ia, W, x, y, x + P.BLOCK - 1, y + P.BLOCK - 1);
+      const b = boxSum(Ib, W, x, y, x + P.BLOCK - 1, y + P.BLOCK - 1);
+      const hi = a > b ? a : b;
+      if (hi < P.MIN_EDGES) continue;      // 윤곽선이 적은 창은 비율이 불안정
+      const lo = a > b ? b : a;
+      const ratio = lo / hi;
+      if (ratio < worstRatio) worstRatio = ratio;
+      // side: 스틸컷 쪽 윤곽선이 더 많으면 '영상에서 빠진 요소'
+      if (ratio < P.RATIO) hits.push({ x, y, ratio, side: a > b ? "still" : "frame" });
+    }
   }
-  all.sort((a, b) => b.size - a.size);
 
-  // 확인필요 기준을 넘은 덩어리만 표시한다. 기준 미만까지 표시하면 정상 소재에도
-  // 마커가 떠서 검수자가 마커를 무시하게 된다.
-  const significant = all.filter(c => c.size >= P.REVIEW_CLUSTER);
-  const spots = significant.slice(0, P.MAX_SPOTS).map(c => ({
+  const needsReview = hits.length >= P.MIN_BLOCKS;
+  const regions = needsReview ? mergeBlocks(hits, P.BLOCK) : [];
+  const spots = regions.slice(0, P.MAX_SPOTS).map(r => ({
     kind: "edge",
-    side: c.side,
-    size: c.size,
-    x: c.x0,
-    y: c.y0,
-    w: c.x1 - c.x0 + 1,
-    h: c.y1 - c.y0 + 1,
+    x: r.x,
+    y: r.y,
+    w: r.w,
+    h: r.h,
+    ratio: r.ratio,
   }));
 
   return {
     status: "ok",
-    needsReview: significant.length > 0,
+    needsReview,
     spots,
-    reviewCount: significant.length,
-    totalClusters: all.length,
-    maxClusterSize: all.length ? all[0].size : 0,
+    regionCount: regions.length,
+    hitBlocks: hits.length,
+    worstRatio,
     elapsedMs: Date.now() - t0,
   };
 }

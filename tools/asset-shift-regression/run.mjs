@@ -37,7 +37,11 @@ let totalMs = 0;
 
 for (const c of meta.cases) {
   const frame = new Uint8Array(fs.readFileSync(path.join(dir, c.frame)));
-  const r = findAssetShift(still, frame, W, H);
+  // 케이스별로 다른 스틸컷을 쓸 수 있다 (ok-real-q* 는 영상 프레임의 JPEG 판이 스틸컷)
+  const stillForCase = c.still
+    ? new Uint8Array(fs.readFileSync(path.join(dir, c.still)))
+    : still;
+  const r = findAssetShift(stillForCase, frame, W, H);
   totalMs += r.elapsedMs;
 
   // known-gap 은 "검출 못 하는 것이 현재 정상" — 검출되면 오히려 알려줘야 한다.
@@ -53,14 +57,18 @@ for (const c of meta.cases) {
 
   // 윤곽선 검사는 반려 판정에 쓰지 않고 '확인필요'까지만 올린다.
   // 표시 지점이 상한을 넘지 않는지, 정상 소재에서 조용한지를 확인한다.
-  const e = findEdgeDiffSpots(still, frame, W, H);
+  const e = findEdgeDiffSpots(stillForCase, frame, W, H);
   if (e.spots.length > EDGE_DIFF_PARAMS.MAX_SPOTS) { failures++; }
-  // 정상 소재(clean)는 윤곽선 검사도 조용해야 한다 — 압축이 극단적인 ok-lowbitrate 는 예외
-  const edgeQuietExpected = c.expect === "clean" && c.name !== "ok-lowbitrate";
-  const edgeOk = !edgeQuietExpected || !e.needsReview;
+  // 윤곽선 검사 기대값 — quiet: 조용해야 함 / review: 확인필요가 떠야 함
+  // overcompressed: 실제 반입 수준보다 과압축한 합성 소재라 걸리는 것이 정상 (채점 제외)
+  const edgeExpect = c.edge || "any";
+  const edgeOk = edgeExpect === "quiet" ? !e.needsReview
+    : edgeExpect === "review" ? e.needsReview
+    : true;
   if (!edgeOk) failures++;
-  const edgeInfo = `윤곽선 ${e.needsReview ? "확인필요" : "통과  "} (고립 최대 ${e.maxClusterSize}px, 표시 ${e.spots.length}곳)` +
-    (edgeOk ? "" : "  ← FAIL: 정상 소재인데 확인필요");
+  const edgeInfo = `윤곽선 ${e.needsReview ? "확인필요" : "통과  "} ` +
+    `(기대 ${edgeExpect}, 최저비율 ${e.worstRatio.toFixed(2)}, 표시 ${e.spots.length}곳)` +
+    (edgeOk ? "" : `  ← FAIL: 기대 ${edgeExpect}`);
 
   const mark = ok ? "PASS" : "FAIL";
   console.log(`[${mark}] ${c.name.padEnd(15)} 기대=${c.expect.padEnd(10)} ${String(r.elapsedMs).padStart(4)}ms  ${detail}`);
