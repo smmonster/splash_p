@@ -2,6 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { findAssetShift } from "./assetShiftCheck.mjs";
 import { findEdgeDiffSpots, EDGE_DIFF_PARAMS } from "./edgeDiffCheck.mjs";
+import {
+  evaluateWebtoonContrast,
+  detectWebtoonLogoColor,
+  detectDivider,
+  DIVIDER_PARAMS,
+} from "./webtoonLogoCheck.mjs";
 
 // --- 로고 가이드 파일 세트 ---
 // 지도
@@ -372,6 +378,18 @@ function loadImg(src) {
     img.onerror = rej;
     img.src = src;
   });
+}
+
+/** 이미지 소스를 원본 크기 그대로 캔버스에 올려 RGBA 픽셀을 꺼낸다. */
+async function getImagePixels(src) {
+  const img = await loadImg(src);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  const { data } = ctx.getImageData(0, 0, img.width, img.height);
+  return { data, width: img.width, height: img.height };
 }
 
 // 모션 스틸컷 이미지 ↔ 영상 첫 프레임 일치 검수
@@ -1118,6 +1136,10 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   const [bgCheck, setBgCheck] = useState({ s: 0, b: 0, pass: true });
   const [bgWasChosen, setBgWasChosen] = useState(false);
 
+  // 웹툰 — 로고 PNG 에서 읽어내는 값
+  const [webtoonLogoColor, setWebtoonLogoColor] = useState(null); // 그린/화이트 자동 감지 결과
+  const [webtoonDivider, setWebtoonDivider] = useState(null);     // 구분선 보조값
+
   useEffect(() => {
   // --- 로고 리셋 ---
   setLogoImg(null);
@@ -1315,6 +1337,50 @@ const toggleManualCheck = (id) => {
       }
     })();
   }, [logoImg, logoBrand]);
+
+  // 웹툰 — 로고 색(그린/화이트) 자동 감지.
+  // 감지 결과를 가이드 컬러 토글에 그대로 반영해, 토글 하나가 '이 소재가 쓴 로고 색'의
+  // 단일 기준이 되게 한다. 감지가 틀리면 검수자가 토글로 덮어쓰면 되고, 그때는
+  // 이 효과가 다시 돌지 않으므로(의존성이 logoImg 뿐) 선택이 유지된다.
+  useEffect(() => {
+    if (logoBrand !== "webtoon" || !logoImg) {
+      setWebtoonLogoColor(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await getImagePixels(logoImg);
+        if (!alive) return;
+        const detected = detectWebtoonLogoColor(data);
+        setWebtoonLogoColor(detected);
+        setGuideColorMode(detected.color);
+      } catch {
+        if (alive) setWebtoonLogoColor(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [logoImg, logoBrand]);
+
+  // 웹툰 — 구분선(디바이더) 보조값. 선 방향이 로고 유형에 따라 달라서 가이드 선택까지 따라간다.
+  useEffect(() => {
+    const orientation = WEBTOON_LOGO_GUIDE_LIST[logoGuideIdx]?.orientation;
+    if (logoBrand !== "webtoon" || !logoImg || !orientation || orientation === "ONLY") {
+      setWebtoonDivider(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const { data, width, height } = await getImagePixels(logoImg);
+        if (!alive) return;
+        setWebtoonDivider(detectDivider(data, width, height, orientation));
+      } catch {
+        if (alive) setWebtoonDivider(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [logoImg, logoBrand, logoGuideIdx]);
 
   // 하단 업로드
   const handleBottomChange = (e) => {
@@ -1553,6 +1619,17 @@ setBottomMainColor(hex);
   const mapWhiteCR = contrastRatio(bgColor, "#ffffff");
   const mapBlackCR = contrastRatio(bgColor, "#000000");
   const mapRecommendedLogo = mapWhiteCR >= mapBlackCR ? "white" : "black";
+
+  // 웹툰 로고 대비 — 어떤 로고 색으로 볼지는 가이드 컬러 토글이 정한다.
+  // 토글의 기본값은 업로드 시 자동 감지 결과로 맞춰진다. (BLACK 은 웹툰 로고에 없는 색이라 감지값으로 폴백)
+  const webtoonLogoColorUsed =
+    guideColorMode === "white" ? "white" :
+    guideColorMode === "green" ? "green" :
+    (webtoonLogoColor?.color || "green");
+  const webtoonContrast =
+    logoBrand === "webtoon" ? evaluateWebtoonContrast(bgColor, webtoonLogoColorUsed) : null;
+  const webtoonColorSourceLabel =
+    webtoonLogoColor && webtoonLogoColor.color === webtoonLogoColorUsed ? "자동감지" : "토글 선택";
 
 
   return (
@@ -2132,6 +2209,27 @@ setBottomMainColor(hex);
                         </span>
                       </div>
 
+                      {/* 웹툰 전용 — 로고와 배경의 WCAG 대비. 채도+명도와 둘 다 통과해야 한다. */}
+                      {logoBrand === "webtoon" && webtoonContrast && (
+                        <div className="info-check-row">
+                          <span className="info-check-icon">
+                            {!logoImg ? <span className="check-none">-</span>
+                              : (webtoonContrast.pass
+                                ? <span className="check-green">✔</span>
+                                : <span className="check-red">✖</span>)}
+                          </span>
+                          <span className="info-check-label">로고 대비</span>
+                          <span className="info-check-value">
+                            {logoImg ? `${webtoonContrast.ratio.toFixed(2)} : 1` : "-"}
+                            <span className="guide-text">
+                              {` (${webtoonLogoColorUsed === "white" ? "화이트" : "그린"} 로고 기준 ${webtoonContrast.threshold} 이상`}
+                              {logoImg ? ` · ${webtoonColorSourceLabel}` : ""}
+                              {")"}
+                            </span>
+                          </span>
+                        </div>
+                      )}
+
                       {logoPaddingCheck?.hasContent && (
                         <div className="info-check-row">
                           <span className="info-check-icon">
@@ -2202,6 +2300,9 @@ setBottomMainColor(hex);
   const isMapContrastItem =
     item.id === "map_logo_contrast_choice" || item.id === "papago_logo_contrast_choice";
 
+  // 구분선은 육안 검수 항목이지만, 검출되면 투명도·색을 보조값으로 같이 보여준다 (판정은 검수자 몫)
+  const showDividerHint = item.id === "webtoon_divider" && webtoonDivider?.found;
+
 const guideText = isMapContrastItem
   ? (
     <span className="manual-check-guide--highlight">
@@ -2210,6 +2311,20 @@ const guideText = isMapContrastItem
       BLACK <span className="bad">{mapBlackCR.toFixed(2)}</span>
       &nbsp;→&nbsp;
       <b>권장: {mapRecommendedLogo.toUpperCase()}</b>
+    </span>
+  )
+  : showDividerHint
+  ? (
+    <span className="manual-check-guide--highlight">
+      구분선 감지 ·{" "}
+      <b>{webtoonDivider.type === "other" ? "블랙/화이트 아님" : webtoonDivider.type.toUpperCase()}</b> ·
+      투명도{" "}
+      <span className={webtoonDivider.opacityOk ? "good" : "bad"}>{webtoonDivider.opacityPct}%</span>
+      &nbsp;→&nbsp;
+      <b>{webtoonDivider.pass ? "기준 충족" : "확인 필요"}</b>
+      <span className="guide-text">
+        {` (${DIVIDER_PARAMS.TARGET_OPACITY}% ±${DIVIDER_PARAMS.OPACITY_TOL}%p · Black 또는 White)`}
+      </span>
     </span>
   )
   : (
