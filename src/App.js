@@ -2315,7 +2315,7 @@ const guideText = isMapContrastItem
   )
   : showDividerHint
   ? (
-    <span className="manual-check-guide--highlight">
+    <span className={`manual-check-guide--highlight${webtoonDivider.pass ? "" : " is-alert"}`}>
       구분선 감지 ·{" "}
       <b>{webtoonDivider.type === "other" ? "블랙/화이트 아님" : webtoonDivider.type.toUpperCase()}</b> ·
       투명도{" "}

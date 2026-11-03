@@ -3,7 +3,10 @@
  *
  * 출처: 웹툰 디자인팀 「스플래시 로고 가시성 확보를 위한 배경 대비 기준 도입」(2026-10-15 전달)
  *       + 함께 전달된 〈스플래시 배경 컬러 확인〉 툴의 판정 로직.
- *       아래 상수·임계값은 그 툴 구현과 동일하게 맞춘 것이다. 임의로 바꾸지 말 것.
+ *       이후 2026-11-02 요청으로 그린 로고 기준값의 분기 잣대와 값이 바뀌었다
+ *       (상대휘도 비교 1.6/2 → HSB 명도 B 50 기준 1.4/2). 그만큼 위 공유 툴과는
+ *       값이 어긋나 있으니, 둘을 맞출 때는 반드시 디자인팀 확인을 거칠 것.
+ *       아래 상수·임계값을 임의로 바꾸지 말 것.
  *
  * 왜 필요한가 — 기존에는 배경색의 채도(S)+명도(B) 합이 160 이하인지만 봤다.
  * 이 방식은 색상(H)과 실제 로고 색을 반영하지 못해서, 밝은 하늘색(#78cbff, 합 153)에
@@ -22,12 +25,14 @@ export const WEBTOON_LOGO_GREEN = "#00dc64";
 export const WEBTOON_LOGO_WHITE = "#ffffff";
 
 export const WEBTOON_CONTRAST_THRESHOLDS = {
-  /** 그린 로고 + 배경이 로고보다 밝을 때 (밝은 컬러·저채도 배경) */
-  GREEN_ON_LIGHT: 1.6,
-  /** 그린 로고 + 배경이 로고보다 어두울 때 (중·고채도, 어두운 배경) */
+  /** 그린 로고 + 밝은 배경 (HSB 명도 B ≥ 50) */
+  GREEN_ON_LIGHT: 1.4,
+  /** 그린 로고 + 어두운 배경 (B < 50) */
   GREEN_ON_DARK: 2,
   /** 화이트 로고 — 배경 밝기와 무관하게 단일 기준 */
   WHITE: 3,
+  /** 그린 로고 기준값을 가르는 HSB 명도 경계 */
+  BRIGHTNESS_SPLIT: 50,
 };
 
 function srgbToLinear(v) {
@@ -61,16 +66,26 @@ export function hexToRgb(hex) {
   ];
 }
 
+/** HSB 의 명도(B, 0~100). 검수툴의 '채도+명도' 표기와 같은 계산·반올림을 쓴다. */
+export function hsbBrightness(rgb) {
+  return Math.round((Math.max(rgb[0], rgb[1], rgb[2]) / 255) * 100);
+}
+
 /**
  * 배경색과 웹툰 로고의 대비 판정.
  *
- * 그린 로고 기준이 둘로 갈리는 이유 — 배경이 로고보다 밝으면 대비를 2 까지 끌어올리기가
+ * 그린 로고 기준이 둘로 갈리는 이유 — 밝은 배경에서는 대비를 2 까지 끌어올리기가
  * 구조적으로 어렵다(그린 자체가 밝은 색이라 더 밝은 배경과는 차이가 안 벌어진다).
- * 그래서 밝은 쪽은 1.6, 어두운 쪽은 2 로 나눈다.
+ * 그래서 밝은 쪽과 어두운 쪽의 기준을 나눈다.
+ *
+ * 밝다/어둡다를 가르는 잣대는 2026-11-02 에 바뀌었다.
+ *   이전: 배경의 상대휘도 vs 그린 로고의 상대휘도(0.5211) → 기준 1.6 / 2
+ *   현재: 배경의 HSB 명도 B ≥ 50 → 기준 1.4 / 2   (웹툰 디자인팀 요청)
+ * 휘도 대신 HSB 명도를 쓰므로 검수툴에 이미 표기하던 B 값과 잣대가 일치한다.
  *
  * @param {string} bgHex     배경색 "#rrggbb"
  * @param {"green"|"white"} logoColor 소재에 쓰인 웹툰 로고 색
- * @returns {{ratio:number, threshold:number, pass:boolean, bgIsLighter:boolean}|null}
+ * @returns {{ratio:number, threshold:number, pass:boolean, bgBrightness:number}|null}
  */
 export function evaluateWebtoonContrast(bgHex, logoColor) {
   const bg = hexToRgb(bgHex);
@@ -80,15 +95,15 @@ export function evaluateWebtoonContrast(bgHex, logoColor) {
   const logo = hexToRgb(logoHex);
 
   const ratio = contrastRatioRgb(bg, logo);
-  const bgIsLighter = relativeLuminanceRgb(bg) >= relativeLuminanceRgb(logo);
+  const bgBrightness = hsbBrightness(bg);
 
   const threshold = logoColor === "white"
     ? WEBTOON_CONTRAST_THRESHOLDS.WHITE
-    : (bgIsLighter
+    : (bgBrightness >= WEBTOON_CONTRAST_THRESHOLDS.BRIGHTNESS_SPLIT
         ? WEBTOON_CONTRAST_THRESHOLDS.GREEN_ON_LIGHT
         : WEBTOON_CONTRAST_THRESHOLDS.GREEN_ON_DARK);
 
-  return { ratio, threshold, pass: ratio >= threshold, bgIsLighter };
+  return { ratio, threshold, pass: ratio >= threshold, bgBrightness };
 }
 
 // ── 로고 색(그린/화이트) 자동 감지 ───────────────────────────────────────────

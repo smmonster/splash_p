@@ -1086,6 +1086,19 @@ body {
   font-weight: 700;
 }
 
+/* 보조값이 기준을 벗어났을 때 — 글자색과 하이라이트 배경을 함께 붉게 */
+.manual-check-guide--highlight.is-alert {
+  background: #fdf0ef;
+  color: #d73a35;
+}
+
+.manual-check-guide--highlight.is-alert b,
+.manual-check-guide--highlight.is-alert .good,
+.manual-check-guide--highlight.is-alert .bad,
+.manual-check-guide--highlight.is-alert .guide-text {
+  color: #d73a35;
+}
+
 /* 로고 가이드 리스트 버튼 텍스트 좌측 정렬 */
 .logo-guide-btn {
   display: flex;
