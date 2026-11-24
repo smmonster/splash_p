@@ -6,7 +6,8 @@ import {
   evaluateWebtoonContrast,
   detectWebtoonLogoColor,
   detectDivider,
-  DIVIDER_PARAMS,
+  evaluateWebtoonLogoShape,
+  LOGO_SHAPE_PARAMS,
 } from "./webtoonLogoCheck.mjs";
 
 // --- 로고 가이드 파일 세트 ---
@@ -29,6 +30,16 @@ const WEBTOON_LOGO_GUIDE_LIST = [
   { name: "세로형-기본", orientation: "H", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_H_1.png" },
   { name: "세로형-정방형", orientation: "H", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_H_2.png" },
   { name: "단독형", orientation: "ONLY", file: process.env.PUBLIC_URL + "/webtoon_splash_logo_only.png" },
+];
+
+// 웹툰 로고 '원본' 파일 — 업로드 소재 안의 웹툰 로고를 이것과 픽셀로 대조한다.
+// 웹툰 디자인팀이 2026-11-24 에 전달한 PSD 원본 추출본이라 임의로 다시 저장하지 말 것
+// (다시 저장하면 안티에일리어싱이 미세하게 달라져 '외곽 반투명 픽셀' 기준값이 틀어진다).
+const WEBTOON_LOGO_REF_LIST = [
+  { key: "combo-green", label: "조합형 그린",   color: "green", file: process.env.PUBLIC_URL + "/webtoon_ref_logo_combo_green.png" },
+  { key: "combo-white", label: "조합형 화이트", color: "white", file: process.env.PUBLIC_URL + "/webtoon_ref_logo_combo_white.png" },
+  { key: "solo-green",  label: "단독형 그린",   color: "green", file: process.env.PUBLIC_URL + "/webtoon_ref_logo_solo_green.png" },
+  { key: "solo-white",  label: "단독형 화이트", color: "white", file: process.env.PUBLIC_URL + "/webtoon_ref_logo_solo_white.png" },
 ];
 
 // 파파고 — 웹툰앱과 동일하게 가로형/세로형 아래 단독형을 나란히 둔다.
@@ -85,7 +96,7 @@ const MANUAL_CHECK_WEBTOON = [
   {
     id: "webtoon_divider",
     label: "로고 구분선 (디바이더)",
-    guide: "로고 간 디바이더는 투명도 50%의 반투명으로 적용하며 배경 컬러에 따라 Black 또는 White 타입 사용"
+    guide: "로고 간 디바이더는 가로형 3×84px(세로형 84×3px) 크기에 투명도 50%의 반투명으로 적용하며 배경 컬러에 따라 Black 또는 White 타입 사용"
   },
   {
     id: "webtoon_check_logo",
@@ -390,6 +401,17 @@ async function getImagePixels(src) {
   ctx.drawImage(img, 0, 0);
   const { data } = ctx.getImageData(0, 0, img.width, img.height);
   return { data, width: img.width, height: img.height };
+}
+
+// 기준 로고 4장은 바뀌지 않으니 한 번만 읽어 재사용한다 (소재를 바꿀 때마다 다시 받지 않게).
+let webtoonRefPixelsPromise = null;
+function loadWebtoonLogoRefs() {
+  if (!webtoonRefPixelsPromise) {
+    webtoonRefPixelsPromise = Promise.all(
+      WEBTOON_LOGO_REF_LIST.map(async ref => ({ ...ref, pixels: await getImagePixels(ref.file) }))
+    ).catch(err => { webtoonRefPixelsPromise = null; throw err; });  // 실패하면 다음에 다시 시도
+  }
+  return webtoonRefPixelsPromise;
 }
 
 // 모션 스틸컷 이미지 ↔ 영상 첫 프레임 일치 검수
@@ -1139,6 +1161,7 @@ const [bottomMainColor, setBottomMainColor] = useState(null);
   // 웹툰 — 로고 PNG 에서 읽어내는 값
   const [webtoonLogoColor, setWebtoonLogoColor] = useState(null); // 그린/화이트 자동 감지 결과
   const [webtoonDivider, setWebtoonDivider] = useState(null);     // 구분선 보조값
+  const [webtoonLogoShape, setWebtoonLogoShape] = useState(null); // 기준 로고 대조 결과
 
   useEffect(() => {
   // --- 로고 리셋 ---
@@ -1381,6 +1404,27 @@ const toggleManualCheck = (id) => {
     })();
     return () => { alive = false; };
   }, [logoImg, logoBrand, logoGuideIdx]);
+
+  // 웹툰 — 기준 로고 4장과 픽셀 대조 (로고 컬러·해상도 변형 검출).
+  // 어느 기준 로고를 쓸지는 모듈이 알파 마스크 일치도로 고르므로 가이드 선택과 무관하다.
+  useEffect(() => {
+    if (logoBrand !== "webtoon" || !logoImg) {
+      setWebtoonLogoShape(null);
+      return;
+    }
+    let alive = true;
+    setWebtoonLogoShape({ status: "running" });
+    (async () => {
+      try {
+        const [target, refs] = await Promise.all([getImagePixels(logoImg), loadWebtoonLogoRefs()]);
+        if (!alive) return;
+        setWebtoonLogoShape({ status: "ok", ...evaluateWebtoonLogoShape(target, refs) });
+      } catch {
+        if (alive) setWebtoonLogoShape({ status: "error" });
+      }
+    })();
+    return () => { alive = false; };
+  }, [logoImg, logoBrand]);
 
   // 하단 업로드
   const handleBottomChange = (e) => {
@@ -2230,6 +2274,53 @@ setBottomMainColor(hex);
                         </div>
                       )}
 
+                      {/* 웹툰 전용 — 기준 로고 원본과 픽셀 대조.
+                          자동 반려가 아니라 '확인필요(⚠)'로 둔다. 해상도 쪽은 정상 소재도
+                          리사이즈 과정에서 걸릴 수 있어 육안 확인으로 넘기는 편이 안전하다. */}
+                      {logoBrand === "webtoon" && logoImg && webtoonLogoShape && (
+                        <div className="info-check-row">
+                          <span className="info-check-icon">
+                            {webtoonLogoShape.status !== "ok" ? <span className="check-none">-</span>
+                              : webtoonLogoShape.pass ? <span className="check-green">✔</span>
+                              : <span className="check-amber">⚠</span>}
+                          </span>
+                          <span className="info-check-label">로고 변형</span>
+                          <span className="info-check-value">
+                            {webtoonLogoShape.status === "running" ? "확인 중…"
+                              : webtoonLogoShape.status === "error" ? "확인 실패 (기준 로고를 읽지 못했습니다)"
+                              : !webtoonLogoShape.matched ? (
+                                <>
+                                  확인필요
+                                  <span className="guide-text">
+                                    {" — 기준 로고와 맞는 웹툰 로고를 찾지 못했습니다"}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  {webtoonLogoShape.pass
+                                    ? "원본과 일치"
+                                    : `확인필요 — ${webtoonLogoShape.reasons.join(" · ")}`}
+                                  <span className="guide-text">
+                                    {` (${webtoonLogoShape.ref.label} 기준 · 컬러 불일치 `}
+                                  </span>
+                                  <span className={webtoonLogoShape.colorOk ? "good" : "bad"}>
+                                    {(webtoonLogoShape.colorBadRatio * 100).toFixed(2)}%
+                                  </span>
+                                  <span className="guide-text">
+                                    {` / ${LOGO_SHAPE_PARAMS.COLOR_FAIL_RATIO * 100}% 미만 · 외곽 `}
+                                  </span>
+                                  <span className={webtoonLogoShape.edgeOk ? "good" : "bad"}>
+                                    {Math.round(webtoonLogoShape.edgeRatio * 100)}%
+                                  </span>
+                                  <span className="guide-text">
+                                    {` / ${LOGO_SHAPE_PARAMS.EDGE_MIN_RATIO * 100}~${LOGO_SHAPE_PARAMS.EDGE_MAX_RATIO * 100}%)`}
+                                  </span>
+                                </>
+                              )}
+                          </span>
+                        </div>
+                      )}
+
                       {logoPaddingCheck?.hasContent && (
                         <div className="info-check-row">
                           <span className="info-check-icon">
@@ -2317,14 +2408,18 @@ const guideText = isMapContrastItem
   ? (
     <span className={`manual-check-guide--highlight${webtoonDivider.pass ? "" : " is-alert"}`}>
       구분선 감지 ·{" "}
-      <b>{webtoonDivider.type === "other" ? "블랙/화이트 아님" : webtoonDivider.type.toUpperCase()}</b> ·
+      <span className={webtoonDivider.type === "other" ? "bad" : "good"}>
+        <b>{webtoonDivider.type === "other" ? "블랙/화이트 아님" : webtoonDivider.type.toUpperCase()}</b>
+      </span> ·
       투명도{" "}
-      <span className={webtoonDivider.opacityOk ? "good" : "bad"}>{webtoonDivider.opacityPct}%</span>
+      <span className={webtoonDivider.opacityOk ? "good" : "bad"}>{webtoonDivider.opacityPct}%</span> ·
+      크기{" "}
+      <span className={webtoonDivider.shapeOk ? "good" : "bad"}>{webtoonDivider.sizeLabel}</span>
       &nbsp;→&nbsp;
       <b>{webtoonDivider.pass ? "기준 충족" : "확인 필요"}</b>
-      <span className="guide-text">
-        {` (${DIVIDER_PARAMS.TARGET_OPACITY}% ±${DIVIDER_PARAMS.OPACITY_TOL}%p · Black 또는 White)`}
-      </span>
+      {!webtoonDivider.pass && (
+        <span className="guide-text">{` (${webtoonDivider.reasons.join(" · ")})`}</span>
+      )}
     </span>
   )
   : (
